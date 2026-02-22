@@ -1,4 +1,17 @@
 include config.yaml
 include README.md
 include LICENSE
+include requirements.txt
+include pytest.ini
+
+# Code Python
 recursive-include eva *.py
+
+# Templates et data
+recursive-include eva/data/prompts *.txt
+
+# Exclusions
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude .DS_Store
