@@ -1,0 +1,508 @@
+{
+  "schema_version": 1,
+  "conversation_id": "886b5fa8-fa34-4f64-bfa3-4e67a20ef810",
+  "created_at": "2026-02-22T13:14:11.321700",
+  "updated_at": "2026-02-22T17:14:49.628863",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T13:14:11.321700"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T13:14:11.322700"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T13:14:11.324699"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T13:14:11.325699"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T13:14:11.332702"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T13:14:11.333702"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:37:39.807652"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T16:37:39.862652"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T16:37:39.884652"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:37:39.906651"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T16:37:40.501501"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T16:37:40.503500"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T16:37:40.504500"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T16:37:40.506501"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T16:37:40.514500"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T16:37:40.515500"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:44:15.978415"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:44:15.979414"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T16:44:16.012415"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:44:16.014413"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T16:44:16.022420"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:44:16.024415"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:44:16.039543"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:44:16.041095"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T16:44:16.542655"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T16:44:16.544655"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T16:44:16.546653"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T16:44:16.548652"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T16:44:16.556656"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T16:44:16.558655"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:46:46.745194"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:46:46.747193"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T16:46:46.775843"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:46:46.776835"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T16:46:46.783835"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:46:46.785837"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:46:46.800838"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:46:46.802836"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T16:46:47.205665"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T16:46:47.206664"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T16:46:47.208662"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T16:46:47.209663"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T16:46:47.215665"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T16:46:47.217664"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:48:07.069086"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:48:07.071079"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T16:48:07.100078"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:48:07.101079"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T16:48:07.108081"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:48:07.109080"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:48:07.123085"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:48:07.124079"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T16:48:07.507692"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T16:48:07.509691"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T16:48:07.510690"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T16:48:07.511690"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T16:48:07.518693"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T16:48:07.519692"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:53:57.775274"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:53:57.777267"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T16:53:57.805275"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:53:57.807267"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T16:53:57.814269"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:53:57.815269"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:53:57.829282"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:53:57.831267"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T16:53:58.228250"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T16:53:58.230251"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T16:53:58.231250"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T16:53:58.232251"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T16:53:58.239274"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T16:53:58.241272"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:55:45.944458"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:55:45.945448"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T16:55:45.974446"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:55:45.975448"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T16:55:45.982449"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:55:45.983448"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T16:55:45.997759"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T16:55:45.998760"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T16:55:46.410134"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T16:55:46.412134"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T16:55:46.413142"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T16:55:46.414133"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T16:55:46.421141"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T16:55:46.422133"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T17:14:48.953952"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T17:14:48.955952"
+    },
+    {
+      "role": "user",
+      "content": "  test  ",
+      "timestamp": "2026-02-22T17:14:48.988952"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T17:14:48.989952"
+    },
+    {
+      "role": "user",
+      "content": "test",
+      "timestamp": "2026-02-22T17:14:48.997953"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T17:14:48.999952"
+    },
+    {
+      "role": "user",
+      "content": "Test message",
+      "timestamp": "2026-02-22T17:14:49.015953"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock response",
+      "timestamp": "2026-02-22T17:14:49.017964"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-22T17:14:49.492711"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-22T17:14:49.494703"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-22T17:14:49.496712"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-22T17:14:49.497714"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-22T17:14:49.507712"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-22T17:14:49.509703"
+    }
+  ]
+}

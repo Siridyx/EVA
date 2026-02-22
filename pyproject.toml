@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eva-assistant"
+version = "0.1.0-dev"
+description = "Assistant IA personnel — propre, modulaire, maintenable"
+readme = "README.md"
+requires-python = ">=3.9,<3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Siridyx", email = "Siridyx@gmail.com"}
+]
+keywords = ["ai", "assistant", "llm", "agent"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "flake8>=6.0",
+    "mypy>=1.0",
+]
+
+[project.scripts]
+eva = "eva.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eva*"]
+exclude = ["tests*", "data*", "plugins*"]
+
+[tool.setuptools.package-data]
+eva = ["*.yaml"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.eggs
+  | \.pytest_cache
+  | build
+  | dist
+  | data
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+markers = [
+    "smoke: smoke tests (quick validation)",
+    "unit: unit tests",
+    "integration: integration tests",
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
