@@ -1,7 +1,58 @@
 {
   "schema_version": 1,
-  "conversation_id": "b0751e90-acb0-46aa-b390-f4a4212a9b30",
-  "created_at": "2026-02-23T09:52:57.176071",
-  "updated_at": "2026-02-23T09:52:57.176071",
-  "messages": []
+  "conversation_id": "c0f0fc4e-9529-4708-b2ff-e7d190a59be0",
+  "created_at": "2026-02-23T10:06:13.981941",
+  "updated_at": "2026-02-23T10:06:27.390620",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Combien font 42 * 17 ?",
+      "timestamp": "2026-02-23T10:06:13.981941"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: calc]",
+      "timestamp": "2026-02-23T10:06:19.329154"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"expression\": \"42 * 17\", \"result\": 714.0}, \"tool_name\": \"calc\"}",
+      "timestamp": "2026-02-23T10:06:19.329497"
+    },
+    {
+      "role": "assistant",
+      "content": "Le résultat du calcul est : 714.",
+      "timestamp": "2026-02-23T10:06:19.330505"
+    },
+    {
+      "role": "user",
+      "content": "Qui es-tu ?",
+      "timestamp": "2026-02-23T10:06:19.331506"
+    },
+    {
+      "role": "assistant",
+      "content": "Je suis EVA, votre assistant virtuel intelligent et polyvalent. Je suis là pour vous aider de manière professionnelle en mettant à profit mon expertise en tant qu'assistant général.",
+      "timestamp": "2026-02-23T10:06:22.210462"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure est-il à Tokyo ?",
+      "timestamp": "2026-02-23T10:06:22.212453"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-23T10:06:27.386438"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"09:06:24\", \"timezone\": \"UTC (demo)\", \"note\": \"Production version would use real timezones\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-23T10:06:27.387615"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est actuellement 14:30:00 à Tokyo.",
+      "timestamp": "2026-02-23T10:06:27.388620"
+    }
+  ]
 }

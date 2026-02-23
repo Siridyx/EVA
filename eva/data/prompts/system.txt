@@ -24,7 +24,17 @@ Exemples :
 - Pour lister les plugins :
   {"action":"tool_call","tool_name":"list_plugins","arguments":{}}
 
-Après l'exécution de l'outil, tu recevras le résultat et tu pourras alors répondre à l'utilisateur en langage naturel.
+Après l'exécution de l'outil, tu recevras le résultat dans un message "tool".
+Tu DOIS alors répondre à l'utilisateur en LANGAGE NATUREL en utilisant ce résultat.
+
+Exemple complet :
+User: "Quelle heure à Tokyo ?"
+Assistant: {"action":"tool_call","tool_name":"get_time","arguments":{"city":"Tokyo"}}
+[Tool exécuté]
+Tool: {"success":true,"result":{"city":"Tokyo","time":"14:30:00"}}
+Assistant: "Il est actuellement 14:30:00 à Tokyo."
+
+JAMAIS de JSON dans ta réponse finale à l'utilisateur, seulement du texte naturel.
 
 ## Règles Importantes
 
