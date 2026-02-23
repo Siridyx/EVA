@@ -332,6 +332,41 @@ class ConversationEngine(EvaComponent):
             "arguments": data["arguments"]
         }    
     
+    def _build_tools_list(self) -> str:
+        """
+        Construit la liste des tools disponibles pour le prompt.
+        
+        Returns:
+            Description formatée des tools disponibles
+        
+        Example:
+            >>> tools_list = engine._build_tools_list()
+            >>> print(tools_list)
+            - get_time(city): Get current time in a specific city
+            - calc(expression): Calculate a simple mathematical expression
+        """
+        if not self._tool_executor:
+            return "Aucun outil disponible pour le moment."
+        
+        # Récupérer tous les tools du registry
+        registry = self._tool_executor._registry
+        all_tools = registry.get_all_definitions()
+        
+        if not all_tools:
+            return "Aucun outil disponible pour le moment."
+        
+        # Formater chaque tool
+        tools_lines = []
+        for tool_def in all_tools:
+            # Paramètres
+            params = ", ".join(tool_def.parameters.keys()) if tool_def.parameters else ""
+            
+            # Ligne formatée
+            line = f"- {tool_def.name}({params}): {tool_def.description}"
+            tools_lines.append(line)
+        
+        return "\n".join(tools_lines)
+
     def respond(self, user_message: str, profile: str = "default") -> str:
         """
         Génère une réponse conversationnelle.
@@ -379,12 +414,15 @@ class ConversationEngine(EvaComponent):
             # 2. Récupérer contexte
             context = self._memory.get_context()
             
-            # 3. Render prompt système
+            # 3. Render prompt système avec tools
+            tools_list = self._build_tools_list()
+
             system_prompt = self._prompt.render(
                 "system",
                 strict=False,
                 tone=self.get_config("prompt.defaults.tone", "professionnel"),
-                expertise=self.get_config("prompt.defaults.expertise", "assistant général")
+                expertise=self.get_config("prompt.defaults.expertise", "assistant général"),
+                tools_list=tools_list
             )
             
             # 4. Construire messages pour LLM
