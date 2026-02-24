@@ -155,3 +155,60 @@ class ToolDefinition:
     def __repr__(self) -> str:
         """Représentation string."""
         return f"ToolDefinition(name={self.name}, params={list(self.parameters.keys())})"
+    
+    def to_openai_function(self) -> Dict[str, Any]:
+        """
+        Convertit ToolDefinition en format OpenAI function calling.
+        
+        Returns:
+            Dict au format OpenAI function schema
+        
+        Example:
+            >>> tool_def.to_openai_function()
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_time",
+                    "description": "Get current time in a specific city",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "city": {
+                                "type": "string",
+                                "description": "City name"
+                            }
+                        },
+                        "required": ["city"]
+                    }
+                }
+            }
+        """
+        # Construire properties
+        properties = {}
+        required = []
+        
+        for param_name, param_schema in self.parameters.items():
+            properties[param_name] = {
+                "type": param_schema["type"]
+            }
+            
+            # Description optionnelle
+            if "description" in param_schema:
+                properties[param_name]["description"] = param_schema["description"]
+            
+            # Required
+            if param_schema.get("required", True):
+                required.append(param_name)
+        
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required
+                }
+            }
+        }

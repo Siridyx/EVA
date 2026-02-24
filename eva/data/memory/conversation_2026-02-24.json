@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "conversation_id": "87951414-4e83-47b8-b8f4-85fcfb4062e7",
+  "created_at": "2026-02-24T08:13:37.190884",
+  "updated_at": "2026-02-24T09:56:15.043739",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-24T08:13:37.190884"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-24T08:13:37.242751"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-24T08:13:37.243752"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-24T08:19:29.021626"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-24T08:19:29.071617"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-24T08:19:29.073618"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-24T09:56:15.031740"
+    },
+    {
+      "role": "assistant",
+      "content": "[tool_call: get_time]",
+      "timestamp": "2026-02-24T09:56:15.032739"
+    },
+    {
+      "role": "tool",
+      "content": "{\"success\": true, \"result\": {\"city\": \"Tokyo\", \"time\": \"15:30\"}, \"tool_name\": \"get_time\"}",
+      "timestamp": "2026-02-24T09:56:15.033738"
+    },
+    {
+      "role": "assistant",
+      "content": "Il est 15:30 à Tokyo",
+      "timestamp": "2026-02-24T09:56:15.034737"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-24T09:56:15.041740"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
+      "timestamp": "2026-02-24T09:56:15.042739"
+    }
+  ]
+}

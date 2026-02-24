@@ -2,7 +2,7 @@
   "schema_version": 1,
   "conversation_id": "6f821e37-972b-4c86-b59c-5e23d37843b8",
   "created_at": "2026-02-23T08:52:05.546607",
-  "updated_at": "2026-02-23T08:52:05.557598",
+  "updated_at": "2026-02-23T11:03:53.998715",
   "messages": [
     {
       "role": "user",
@@ -33,6 +33,16 @@
       "role": "assistant",
       "content": "{\"action\":\"tool_call\",\"tool_name\":\"test\",\"arguments\":{}}",
       "timestamp": "2026-02-23T08:52:05.556598"
+    },
+    {
+      "role": "user",
+      "content": "Quelle heure à Tokyo ?",
+      "timestamp": "2026-02-23T11:03:53.931715"
+    },
+    {
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-02-23T11:03:53.991717"
     }
   ]
 }

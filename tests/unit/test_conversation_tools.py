@@ -20,7 +20,7 @@ class MockLLM:
         self.responses = []
         self.call_count = 0
     
-    def complete(self, messages, profile="default"):
+    def complete(self, messages, profile="default", tools=None):
         """Retourne réponses pré-définies."""
         if self.call_count < len(self.responses):
             response = self.responses[self.call_count]

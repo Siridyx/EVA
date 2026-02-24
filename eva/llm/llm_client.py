@@ -149,7 +149,8 @@ class LLMClient(EvaComponent, ABC):
         messages: List[Dict[str, str]],
         profile: str = "default",
         max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
         Génère une complétion (avec retry sur erreurs transient).
@@ -208,7 +209,8 @@ class LLMClient(EvaComponent, ABC):
                     messages=messages,
                     model=model,
                     max_tokens=max_tokens,
-                    temperature=temperature
+                    temperature=temperature,
+                    tools=tools
                 )
                 
                 # Succès
