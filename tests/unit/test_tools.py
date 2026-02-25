@@ -453,15 +453,86 @@ def test_tool_executor_emits_events(executor, registry, event_bus):
     events = []
     event_bus.on("tool_called", lambda e: events.append(("called", e)))
     event_bus.on("tool_result", lambda e: events.append(("result", e)))
-    
+
     @tool(name="test", description="Test")
     def test_func():
         return "ok"
-    
+
     registry.register(test_func.tool_definition)
-    
+
     executor.execute("test", {})
-    
+
     assert len(events) == 2
     assert events[0][0] == "called"
     assert events[1][0] == "result"
+
+
+# --- Tests ToolRegistry (branches manquantes) ---
+
+def test_tool_registry_register_requires_started(config, event_bus):
+    """register() lève RuntimeError si registry pas démarré."""
+    reg = ToolRegistry(config, event_bus)
+    # Pas de start()
+
+    tool_def = ToolDefinition(name="test", description="Test", function=lambda: None)
+
+    with pytest.raises(RuntimeError, match="not started"):
+        reg.register(tool_def)
+
+
+def test_tool_registry_unregister_requires_started(config, event_bus):
+    """unregister() lève RuntimeError si registry pas démarré."""
+    reg = ToolRegistry(config, event_bus)
+
+    with pytest.raises(RuntimeError, match="not started"):
+        reg.unregister("some_tool")
+
+
+def test_tool_registry_clear(registry):
+    """clear() vide le registry."""
+    tool1 = ToolDefinition(name="t1", description="1", function=lambda: None)
+    tool2 = ToolDefinition(name="t2", description="2", function=lambda: None)
+    registry.register(tool1)
+    registry.register(tool2)
+    assert registry.count() == 2
+
+    registry.clear()
+
+    assert registry.count() == 0
+    assert registry.list_tools() == []
+
+
+def test_tool_registry_clear_emits_event(registry, event_bus):
+    """clear() émet tool_registry_cleared avec le bon count."""
+    events = []
+    event_bus.on("tool_registry_cleared", lambda e: events.append(e))
+
+    tool1 = ToolDefinition(name="t1", description="1", function=lambda: None)
+    registry.register(tool1)
+    registry.clear()
+
+    assert len(events) == 1
+    assert events[0]["tools_cleared"] == 1
+
+
+def test_tool_registry_clear_requires_started(config, event_bus):
+    """clear() lève RuntimeError si registry pas démarré."""
+    reg = ToolRegistry(config, event_bus)
+
+    with pytest.raises(RuntimeError, match="not started"):
+        reg.clear()
+
+
+def test_tool_registry_repr_stopped(config, event_bus):
+    """__repr__ affiche 'stopped' quand le registry est arrêté."""
+    reg = ToolRegistry(config, event_bus)
+    repr_str = repr(reg)
+    assert "stopped" in repr_str
+    assert "ToolRegistry" in repr_str
+
+
+def test_tool_registry_repr_running(registry):
+    """__repr__ affiche 'running' quand le registry est démarré."""
+    repr_str = repr(registry)
+    assert "running" in repr_str
+    assert "ToolRegistry" in repr_str

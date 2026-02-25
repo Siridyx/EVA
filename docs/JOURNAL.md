@@ -224,17 +224,264 @@ Voir DEBT.md
 
 👉 EVA est utilisable réellement
 
-## 🚀 Phase 2 — Prévision
+---
 
-Axes :
+## 📍 Phase 2 — Tool Calling (EN COURS → 80% ✅)
 
-- Agents
-- Tool calling
-- RAG
-- Embeddings
-- Multi-step planning
+**Objectif** : EVA peut appeler des fonctions et outils externes
 
-Voir ROADMAP.md
+### 🔹 R-020 — Tool Calling System
+
+**Statut** : ✅ VALIDÉ
+
+**Implémentation** :
+
+- ToolDefinition (dataclass frozen)
+  - name, description, function, parameters, returns
+  - validate_arguments() avec type checking
+  - to_dict() pour serialization
+  - to_openai_function() pour OpenAI (R-023)
+- ToolRegistry (EvaComponent)
+  - register(), unregister(), get(), list_tools(), get_all_definitions()
+  - Events : tool_registered, tool_unregistered, registry_cleared
+  - Détection duplicates
+- Decorator @tool
+  - Syntaxe simple : `@tool(name, description, parameters)`
+  - Crée ToolDefinition automatiquement
+  - Preserve fonction originale
+  - Helpers : is_tool(), get_tool_definition()
+- ToolExecutor (EvaComponent)
+  - execute(tool_name, arguments) avec validation stricte
+  - Timeout configurable (30s default)
+  - Error handling safe (tool crash ≠ EVA crash)
+  - Events : tool_called, tool_result, tool_error
+  - Format résultat : `{"success": bool, "result": Any, "tool_name": str}`
+
+- ConversationEngine integration
+  - \_detect_tool_call(llm_response) → parse JSON
+  - Workflow : User → LLM → detect → execute → LLM → response
+  - Memory persistence (tool calls + results)
+  - Event tool_call_detected
+  - Format interne : `{"tool_name": str, "arguments": dict}`
+
+**Demo Tools** :
+
+- get_time(city) : Heure dans ville (demo UTC)
+- calc(expression) : Calculatrice safe (pas eval)
+- list_plugins() : Liste plugins
+- get_status() : Status EVA
+
+**Tests** : 45 tests (10+9+7+7+4+8)
+
+**Incidents** :
+
+- Ordre paramètres EvaComponent inversé (fix : config, event_bus, name)
+- Cache Python .pyc (fix : delete **pycache**)
+- Classe ToolDefinition dupliquée (fix : suppression duplication)
+
+---
+
+### 🔹 R-021 — Prompt Engineering Tool Calling
+
+**Statut** : ✅ VALIDÉ
+
+**Modifications** :
+
+- system.txt mis à jour avec instructions tool calling
+- Format JSON strict documenté
+- 3 exemples concrets (get_time, calc, list_plugins)
+- Règles LLM : JSON strict, une ligne, pas texte autour
+- Instruction reformulation après tool result
+
+**Méthodes** :
+
+- ConversationEngine.\_build_tools_list() → formate liste tools pour prompt
+- PromptManager.render(strict=False) → permet placeholders non résolus
+
+**Tests** : 4 tests integration
+
+---
+
+### 🔹 R-022 — Test End-to-End Ollama
+
+**Statut** : ✅ VALIDÉ
+
+**Résultats** :
+
+- Test 1 (calc) : "Combien font 42 \* 17 ?" → "Le résultat du calcul est : 714." ✅
+- Test 2 (direct) : "Qui es-tu ?" → Réponse sans tool ✅
+- Test 3 (get_time) : "Quelle heure à Tokyo ?" → "Il est actuellement 09:06:24 à Tokyo." ✅
+
+**Workflow validé** :
+
+1. Détection tool call JSON
+2. Exécution tool via ToolExecutor
+3. Reformulation langage naturel par LLM
+4. Memory persistence
+
+**Script** : test_ollama_tools.py (temporaire, supprimé après validation)
+
+---
+
+### 🔹 R-023 — OpenAI Function Calling Adapter
+
+**Statut** : ✅ VALIDÉ
+
+**Architecture** :
+
+- Provider-agnostic : Format interne EVA neutre
+- Ollama : Prompt engineering JSON (`{"action":"tool_call",...}`)
+- OpenAI : Function calling natif (tools parameter)
+
+**Implémentation** :
+
+- ToolDefinition.to_openai_function() → conversion schema OpenAI
+- LLMClient.complete(tools=...) → parameter ajouté
+- OpenAIProvider.\_do_complete(tools=...) → utilise tools parameter
+- OllamaProvider.\_do_complete(tools=...) → ignore (prompt engineering)
+- ConversationEngine construit tools_openai si executor présent
+
+**Conversion** :
+
+- EVA format : `{"tool_name": "calc", "arguments": {"expression": "2+3"}}`
+- OpenAI schema : `{"type": "function", "function": {...}}`
+- OpenAI response : tool_calls → converti vers format EVA
+
+**Backward compatible** : OllamaProvider ignore tools parameter
+
+**Tests** : 4 tests integration (100% pass)
+
+---
+
+## 📊 Métriques Phase 2
+
+**Tests** :
+
+- Phase 1.1 : 216 tests
+- R-020-023 : +49 tests
+- Total : 265 tests dont 232 passent (88%)
+- xfailed : 27 (DEBT-008)
+- Durée : ~15s
+
+**Couverture** :
+
+- Tools : 100%
+- Integration : 100%
+- Global : ~95%
+
+**Dettes** :
+
+- DEBT-008 : 27 tests xfailed (prompts, logging, events)
+- Aucune nouvelle dette P0/P1
+
+---
+
+## 🎯 Phase 2 — Bilan Partiel (80%)
+
+**À la fin de R-020-023** :
+
+✅ Tool calling fonctionnel
+✅ Provider-agnostic (Ollama + OpenAI)
+✅ Demo tools opérationnels
+✅ Tests end-to-end validés
+✅ Architecture extensible
+
+**Manque pour Phase 2 complète** :
+
+- R-024 : RAG / Embeddings (XL)
+
+**Prochaine étape** : R-024 RAG ou clôture Phase 2
+
+---
+
+---
+
+## 📍 Phase 2 — RAG (EN COURS → VALIDÉ ✅)
+
+### 🔹 R-024 — Mémoire Vectorielle (RAG)
+
+**Statut** : ✅ VALIDÉ
+
+**Objectif** : Permettre à EVA de retrouver des informations pertinentes dans une base de connaissances via similarité vectorielle.
+
+**Architecture** (pipeline complet) :
+
+```
+add_document(text)
+    │
+    ├─→ TextChunker.chunk(text)        → List[str]
+    ├─→ EmbeddingsProvider.embed(chunk) → np.ndarray (normalisé L2)
+    ├─→ VectorStorage.save()           → index.json + index.npz (atomique)
+    └─→ emit(vector_document_added)
+
+search(query, top_k)
+    │
+    ├─→ EmbeddingsProvider.embed(query) → np.ndarray
+    ├─→ CosineSimilarity.compute()      → scores [num_docs]
+    ├─→ np.argsort(scores)[::-1][:k]   → top-k indices
+    ├─→ format résultats               → List[Dict]
+    └─→ emit(vector_search_performed)
+```
+
+**Composants implémentés** :
+
+- `TextChunker` : découpage par caractères avec overlap (sliding window)
+  - `chunk_size` configurable (défaut 500)
+  - `chunk_overlap` configurable (défaut 50)
+  - Validation paramètres à l'init
+- `EmbeddingsProvider` : interface abstraite (`embed()`, `get_embedding_dim()`)
+  - `FakeEmbeddingProvider` : hash SHA256 → seed RNG → vecteur uniforme → normalisation L2
+  - `LocalEmbeddingProvider` : sentence-transformers, lazy load
+- `CosineSimilarity` : dot product sur vecteurs pré-normalisés L2
+  - Validation shapes et dimensions à l'appel
+- `VectorStorage` : persistence atomique (write .tmp → rename)
+  - Métadonnées : `model_name`, `embedding_dim`, `created_at`
+  - `validate_compatibility()` : détecte mismatch modèle/dimension
+- `VectorMemory` : orchestrateur principal (hérite `EvaComponent`)
+  - Lifecycle `start()` → load index si existe
+  - Lifecycle `stop()` → save index si modifié
+  - `add_document()` → pipeline chunk+embed+store
+  - `search()` → embed query + similarity + top-k
+  - `clear()` → reset index
+
+**Tests** : 55 actifs (9+12+7+10+13+4)
+
+```
+Fichier                    Tests              Cible
+test_chunker.py            9                  TextChunker
+test_embeddings.py         12                 EmbeddingsProvider (Fake + Local)
+test_similarity.py         7                  CosineSimilarity
+test_storage.py            10                 VectorStorage
+test_vector_memory.py      13                 VectorMemory
+test_rag_integration.py    4                  Integration end-to-end
+```
+
+**Incidents & Fixes** :
+
+🟡 Incident 1 — NaN dans FakeEmbeddingProvider
+- Cause : `np.frombuffer(sha256_bytes, dtype=float32)` interprète les bits SHA256 comme floats → certains patterns forment des NaN/Inf
+- Fix : `np.random.default_rng(seed)` seedé avec `int.from_bytes(hash_bytes[:8], 'big')` → garantit des valeurs valides, reste déterministe
+
+🟡 Incident 2 — `AttributeError: 'VectorMemory' has no attribute 'state'`
+- Cause : `VectorMemory.__repr__` utilisait `self.state` qui n'existe pas dans `EvaComponent`
+- Fix : calcul inline `"running" if self._running else ("started" if self._started else "stopped")`
+
+🟡 Incident 3 — `FileNotFoundError: tests/config.yaml`
+- Cause : `conftest.py` calculait `parent.parent` depuis `tests/unit/` → atterrissait dans `tests/`
+- Fix : `parent.parent.parent / "eva" / "config.yaml"` (3 niveaux + sous-dossier)
+
+🟡 Incident 4 — Events non reçus dans tests
+- Cause : handler `def handler(event, payload)` avec 2 args alors que `EventBus` appelle `handler(payload)` → crash silencieux (EventBus absorbe les exceptions)
+- Fix : lambdas `lambda p: events_received.append("vector_document_added")`
+
+**Métriques** :
+
+```
+Tests avant corrections : 9/13 (69%)
+Tests après corrections  : 13/13 (100%)
+```
+
+---
 
 ## 📝 Notes Personnelles
 

@@ -54,8 +54,41 @@ class ConversationEngine(EvaComponent):
         super().__init__(config, event_bus, "ConversationEngine")
 
        
+    # --- Propriétés publiques ---
+
+    @property
+    def memory_manager(self):
+        """MemoryManager injecté."""
+        return self._memory
+
+    @property
+    def prompt_manager(self):
+        """PromptManager injecté."""
+        return self._prompt
+
+    @property
+    def llm_client(self):
+        """LLMClient injecté."""
+        return self._llm
+
+    @property
+    def _prompt_defaults(self) -> Dict[str, str]:
+        """Defaults du prompt système depuis config."""
+        return {
+            "tone": self.get_config("prompt.defaults.tone", "professionnel"),
+            "expertise": self.get_config("prompt.defaults.expertise", "assistant général"),
+        }
+
+    # --- Lifecycle ---
+
     def _do_start(self) -> None:
-        """Démarre ConversationEngine."""
+        """Démarre ConversationEngine (vérifie les dépendances)."""
+        if not self._memory.is_running:
+            raise RuntimeError("MemoryManager must be started before ConversationEngine")
+        if not self._prompt.is_running:
+            raise RuntimeError("PromptManager must be started before ConversationEngine")
+        if not self._llm.is_running:
+            raise RuntimeError("LLMClient must be started before ConversationEngine")
         self.emit("conversation_engine_started", {})
 
     def _do_stop(self) -> None:
@@ -293,7 +326,34 @@ class ConversationEngine(EvaComponent):
 
         return "\n".join(tools_lines)
 
+    def _build_message(self, role: str, content: str) -> Dict[str, Any]:
+        """
+        Construit un message formaté (role + content + timestamp).
+
+        Args:
+            role: Rôle du message ("system", "user", "assistant")
+            content: Contenu du message
+
+        Returns:
+            Dict avec role, content, timestamp ISO 8601
+
+        Raises:
+            ValueError: Si rôle invalide
+        """
+        from datetime import datetime
+
+        valid_roles = {"system", "user", "assistant", "tool"}
+        if role not in valid_roles:
+            raise ValueError(f"Invalid role: {role!r}. Valid: {sorted(valid_roles)}")
+
+        return {
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now().isoformat()
+        }
+
     def __repr__(self) -> str:
         """Représentation string."""
+        state = "running" if self.is_running else "stopped"
         tools = "with tools" if self._tool_executor else "no tools"
-        return f"ConversationEngine(state={self.state}, {tools})"
+        return f"ConversationEngine(state={state}, {tools})"

@@ -13,30 +13,38 @@ from eva.prompt.prompt_manager import PromptManager
 
 @pytest.fixture
 def config(tmp_path):
-    """Fixture ConfigManager."""
+    """
+    Fixture ConfigManager avec isolation tmp_path.
+    
+    Utilise le vrai config.yaml du projet mais avec EVA_DATA_DIR isolé.
+    """
+    # Set EVA_DATA_DIR vers tmp pour isolation
     os.environ["EVA_DATA_DIR"] = str(tmp_path / "data")
     
-    # Structure: EVA/tests/unit/conftest.py
-    #         -> EVA/eva/config.yaml
-    test_file = Path(__file__)  # EVA/tests/unit/conftest.py
-    eva_root = test_file.parent.parent  # EVA/
-    config_file = eva_root / "eva" / "config.yaml"  # EVA/eva/config.yaml
+    # Utiliser le vrai config.yaml du projet
+    # Il est dans eva/ (3 niveaux au-dessus de tests/unit/)
+    project_root = Path(__file__).parent.parent.parent
+    config_file = project_root / "eva" / "config.yaml"
     
-    if not config_file.exists():
-        raise FileNotFoundError(f"Config not found at: {config_file}")
+    # Créer ConfigManager
+    config = ConfigManager(str(config_file))
     
-    return ConfigManager(str(config_file))
+    return config
 
 
 @pytest.fixture
 def event_bus():
-    """Fixture EventBus."""
+    """
+    Fixture EventBus propre pour chaque test.
+    """
     return EventBus()
 
 
 @pytest.fixture
 def memory(tmp_path, config, event_bus):
-    """Fixture MemoryManager."""
+    """
+    Fixture MemoryManager pour tests.
+    """
     mem = MemoryManager(config, event_bus)
     mem.start()
     yield mem
@@ -45,7 +53,9 @@ def memory(tmp_path, config, event_bus):
 
 @pytest.fixture
 def prompt(tmp_path, config, event_bus):
-    """Fixture PromptManager."""
+    """
+    Fixture PromptManager pour tests.
+    """
     pm = PromptManager(config, event_bus)
     pm.start()
     yield pm

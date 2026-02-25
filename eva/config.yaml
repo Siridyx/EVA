@@ -70,3 +70,11 @@ prompt:
   defaults:
     tone: "professionnel"
     expertise: "assistant général"
+
+# RAG / Vector Memory (R-024)
+rag:
+  enabled: false  # Désactivé par défaut (opt-in)
+  chunk_size: 500
+  chunk_overlap: 50
+  embedding_model: "all-MiniLM-L6-v2"
+  top_k: 3

@@ -10,6 +10,17 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
+- **Mémoire vectorielle RAG (R-024)** : Pipeline RAG complet (chunk → embed → store → search)
+  - `TextChunker` : découpage texte par caractères avec overlap configurable
+  - `EmbeddingsProvider` : interface abstraite multi-provider
+  - `FakeEmbeddingProvider` : embeddings déterministes via RNG seedé (SHA256 → seed) — 100% offline pour tests
+  - `LocalEmbeddingProvider` : sentence-transformers (all-MiniLM-L6-v2, lazy load)
+  - `CosineSimilarity` : dot product sur vecteurs L2-normalisés (O(n) MVP)
+  - `VectorStorage` : persistence atomique (index.json + index.npz, write-tmp-then-rename)
+  - `VectorMemory` : orchestrateur complet, hérite EvaComponent, lifecycle + events
+  - Events observabilité : `vector_document_added`, `vector_search_performed`, `vector_index_loaded`, `vector_index_cleared`
+  - 55 tests unitaires RAG actifs (9 chunker + 12 embeddings + 7 similarity + 10 storage + 13 vector_memory + 4 integration)
+
 - **Provider Ollama (R-012b)** : Support LLM local gratuit
   - OllamaProvider pour conversations sans API key
   - Endpoint `http://localhost:11434/api/generate`
@@ -92,6 +103,14 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
   - 216 tests passent en 10.35s
 
 ### Fixed
+
+- **FakeEmbeddingProvider** : Fix NaN/Inf dans vecteurs générés — `np.frombuffer` remplacé par `np.random.default_rng(seed)` seedé via SHA256 (R-024)
+
+- **VectorMemory.__repr__** : Fix `AttributeError: 'VectorMemory' object has no attribute 'state'` — calcul état via `_running`/`_started` (R-024)
+
+- **tests/unit/conftest.py** : Fix `FileNotFoundError` chemin config.yaml — `parent.parent` → `parent.parent.parent / "eva"` (R-024)
+
+- **test_vector_memory_events** : Fix handler EventBus signature `(event, payload)` → `(payload)` via lambdas — les handlers crashaient silencieusement (R-024)
 
 - **Tests isolation** : Résolution incidents I/O (29min → 10s, gain 162x)
   - tmp_path global via fixture autouse
@@ -186,3 +205,119 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 - 0.1.0-dev = Phase 0
 - 0.1.0-p1 = Phase 1 complete
 - 0.2.0 = Phase 2
+
+## [0.1.0-p2] - 2026-02-24
+
+### Summary
+
+**Phase 2 (R-020 à R-023) : Tool Calling Complete** : EVA peut maintenant appeler des fonctions !
+
+**Métriques** :
+
+- 232 tests en 15s (+49 tests tools)
+- Coverage ~95%
+- 4/5 items Phase 2 (80%)
+- 0 dette P0/P1
+
+**Capacités** :
+
+- ✅ Tool calling end-to-end (Ollama + OpenAI)
+- ✅ @tool decorator pour créer tools simplement
+- ✅ 4 demo tools (get_time, calc, list_plugins, get_status)
+- ✅ Provider-agnostic architecture
+- ✅ Memory persistence tool calls
+- ✅ Reformulation langage naturel
+
+### Added - Phase 2 (Tool Calling)
+
+- **Tool Calling System (R-020)** :
+  - ToolDefinition dataclass (name, description, function, parameters, returns)
+  - ToolRegistry avec lifecycle (register, unregister, get, list, get_all_definitions)
+  - ToolExecutor avec validation et execution safe (timeout, error handling)
+  - @tool decorator pour création simple (`@tool(name, description, parameters)`)
+  - ConversationEngine integration (workflow 2 LLM calls)
+  - Events observabilité (tool_call_detected, tool_called, tool_result, tool_error)
+  - Memory persistence (tool calls + results avec role="tool")
+  - 45 tests tools (ToolDefinition 10, ToolRegistry 9, Decorator 7, ToolExecutor 7, Integration 4, Demo 8)
+
+- **Demo Tools (R-020)** :
+  - get_time(city) : Get current time in city (demo UTC)
+  - calc(expression) : Safe calculator (no eval, supports +,-,\*,/)
+  - list_plugins() : List registered plugins
+  - get_status() : Get EVA system status
+  - register_demo_tools() helper function
+
+- **Prompt Engineering Tool Calling (R-021)** :
+  - Instructions tool calling dans system prompt (data/prompts/system.txt)
+  - Format JSON strict documenté ({"action":"tool_call","tool_name":"...","arguments":{...}})
+  - Exemples concrets (get_time Tokyo, calc 25\*4, list_plugins)
+  - Injection dynamique tools list dans prompt
+  - Règles claires LLM : JSON strict une ligne, pas de texte autour, reformuler après result
+
+- **Test End-to-End Ollama (R-022)** :
+  - Workflow complet validé avec Ollama réel (llama3:8b)
+  - Test calc(42\*17) : "Le résultat du calcul est : 714."
+  - Test get_time(Tokyo) : "Il est actuellement 09:06:24 à Tokyo."
+  - Test question directe : Répond sans tool call
+  - Reformulation langage naturel après tool result
+  - Script test manuel (test_ollama_tools.py)
+
+- **OpenAI Function Calling Adapter (R-023)** :
+  - ToolDefinition.to_openai_function() conversion vers OpenAI schema
+  - OpenAIProvider native function calling (tools parameter)
+  - LLMClient.complete(tools=...) parameter
+  - OllamaProvider.complete(tools=...) parameter (ignored, uses prompt engineering)
+  - Conversion réponse OpenAI tool_calls → format EVA interne
+  - Architecture provider-agnostic (JSON custom Ollama, native OpenAI)
+  - Backward compatible
+
+### Changed
+
+- **ConversationEngine.respond()** :
+  - Détection tool call JSON (`_detect_tool_call()`)
+  - Workflow 2 LLM calls si tool détecté (call → execute → call → response)
+  - Injection tools_openai dans complete() si ToolExecutor présent
+  - Memory persistence tool calls (role="assistant" tool_call + role="tool" result)
+  - Event tool_call_detected émis
+
+- **PromptManager.render()** :
+  - Parameter strict (bool) ajouté (default True)
+  - strict=False : Laisse placeholders non résolus (pour tests)
+  - strict=True : Raise ValueError si placeholder non résolu
+  - Event prompt_rendered émis
+
+- **LLMClient.complete()** :
+  - Parameter tools (List[Dict]) ajouté (optionnel)
+  - Passé à \_do_complete() pour providers
+  - OpenAIProvider utilise tools pour function calling natif
+  - OllamaProvider ignore tools (utilise prompt engineering)
+
+- **MemoryManager** :
+  - Role "tool" ajouté à la validation (ligne 272)
+  - Support persistence tool results
+
+### Fixed
+
+- **LLMClient retry logic** :
+  - Fix max_retries=0 en test mode (changé à 1 minimum)
+  - Fix raise None → RuntimeError si pas d'exception
+  - Test mode : max_retries=1, retry_delay=0.01s
+
+- **EvaComponent.**init**** :
+  - Fix ordre paramètres (config, event_bus, name) vs (name, config, event_bus)
+  - ConversationEngine appelle super().**init**(config, event_bus, "ConversationEngine")
+
+- **Tests suite** :
+  - 228 passed, 2 skipped, 27 xfailed (DEBT-008)
+  - +49 tests tools (45 unit + 4 integration)
+  - Total : 277 tests dont 232 passent (84%)
+
+### Technical
+
+- **Tests** : 232 passed (+16 depuis Phase 1.1)
+- **Durée** : ~15s (+5s tools tests)
+- **Coverage** : ~95%
+- **Architecture** : Provider-agnostic tool calling
+- **Compatibility** : Ollama (JSON) + OpenAI (native)
+
+---

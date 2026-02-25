@@ -93,7 +93,8 @@ class LLMClient(EvaComponent, ABC):
         messages: List[Dict[str, str]],
         model: str,
         max_tokens: int,
-        temperature: float
+        temperature: float,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
         Implémentation provider-specific de la complétion.

@@ -2,9 +2,9 @@
 
 Feuille de route du projet EVA (Assistant IA Personnel).
 
-**Version** : 0.1.0-p1  
-**Dernière mise à jour** : 2026-02-21  
-**Phase actuelle** : Phase 1.1 (Intelligence + Provider Local) — 100%
+**Version** : 0.1.0-p2
+**Dernière mise à jour** : 2026-02-25
+**Phase actuelle** : Phase 2 (RAG) — 100%
 
 ---
 
@@ -26,11 +26,11 @@ Créer un assistant IA personnel :
 | Phase 0   | ✅ DONE | 100% (8/8)  | 96    | 2.5s   |
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
-| Phase 2   | ⏳ TODO | 0% (0/5)    | -     | -      |
+| Phase 2   | ✅ DONE | 100% (5/5)  | 315   | ~17s   |
 | Phase 3   | ⏳ TODO | 0% (0/4)    | -     | -      |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
-**Total items complétés** : 19/34 (56%)
+**Total items complétés** : 24/34 (71%)
 
 ---
 
@@ -209,15 +209,80 @@ EVA> Merci !
 
 Objectif : EVA devient intelligent et autonome.
 
-- [ ] [P2][L][todo] R-020 — Tool Calling (function calling) (deps: R-014)
-- [ ] [P2][L][todo] R-021 — Agent Base (raisonnement + planning) (deps: R-020)
-- [ ] [P2][M][todo] R-022 — Tool Registry (enregistrement + dispatch) (deps: R-020)
-- [ ] [P2][L][todo] R-023 — Planificateur multi-step (deps: R-021, R-022)
-- [ ] [P2][XL][todo] R-024 — Mémoire vectorielle (RAG) (deps: R-011)
+- [x] [P2][L][done] R-020 — Tool Calling (function calling) (deps: R-014) ✅ VALIDÉ
+- [x] [P2][L][done] R-021 — Agent Base (raisonnement + planning) (deps: R-020) ✅ VALIDÉ
+- [x] [P2][M][done] R-022 — Tool Registry (enregistrement + dispatch) (deps: R-020) ✅ VALIDÉ
+- [x] [P2][L][done] R-023 — Planificateur multi-step (deps: R-021, R-022) ✅ VALIDÉ
+- [x] [P2][XL][done] R-024 — Mémoire vectorielle (RAG) (deps: R-011) ✅ VALIDÉ
 
-**Statut** : 0/5 items (0%)  
-**Tests** : -  
+**Statut** : 5/5 items (100%) ✅
+**Tests** : ~315 passed (~17s)
 **Dépendances** : Phase 1 complète ✅
+
+---
+
+## PHASE 2 — TOOL CALLING & ORCHESTRATION (P2) ⏳ (80% complété)
+
+Objectif : EVA appelle des fonctions et outils externes.
+
+- [x] [P2][L][done] R-020 — Tool Calling System (deps: R-014) ✅ VALIDÉ
+  - ToolDefinition, ToolRegistry, ToolExecutor
+  - @tool decorator avec auto-schema
+  - ConversationEngine integration (workflow 2 LLM calls)
+  - 4 demo tools (get_time, calc, list_plugins, get_status)
+  - 45 tests tools (100% pass)
+  - Events : tool_call_detected, tool_called, tool_result, tool_error
+- [x] [P2][S][done] R-021 — Prompt Engineering Tool Calling (deps: R-020) ✅ VALIDÉ
+  - Instructions tool calling dans system prompt
+  - Format JSON strict documenté (`{"action":"tool_call",...}`)
+  - Exemples concrets (Tokyo, calc, list_plugins)
+  - Injection dynamique tools list
+  - Règles claires : JSON strict, une ligne, pas de texte autour
+- [x] [P2][S][done] R-022 — Test End-to-End Ollama (deps: R-020, R-021) ✅ VALIDÉ
+  - Workflow complet validé avec Ollama réel
+  - calc(42\*17) → "Le résultat du calcul est : 714."
+  - get_time(Tokyo) → "Il est actuellement 09:06:24 à Tokyo."
+  - Tests multi-tours conversation
+  - Reformulation langage naturel après tool result
+- [x] [P2][M][done] R-023 — OpenAI Function Calling Adapter (deps: R-020) ✅ VALIDÉ
+  - ToolDefinition.to_openai_function() conversion schema
+  - OpenAIProvider native function calling support
+  - LLMClient.complete(tools=...) parameter
+  - Provider-agnostic architecture (Ollama JSON + OpenAI native)
+  - Backward compatible (OllamaProvider ignore tools parameter)
+  - Conversion réponse OpenAI → format EVA interne
+- [x] [P2][XL][done] R-024 — Mémoire vectorielle (RAG) (deps: R-011) ✅ VALIDÉ
+  - TextChunker : découpage par caractères avec overlap configurable
+  - EmbeddingsProvider : interface abstraite + FakeEmbeddingProvider (offline, déterministe) + LocalEmbeddingProvider (sentence-transformers)
+  - CosineSimilarity : dot product sur vecteurs L2-normalisés
+  - VectorStorage : persistence atomique (index.json + index.npz)
+  - VectorMemory : orchestrateur complet, hérite EvaComponent, lifecycle + events
+  - 55 tests unitaires actifs (9+12+7+10+13+4)
+
+**Statut** : 5/5 items (100%) ✅
+**Tests** : ~320 passed (232 tools + 55 RAG + régression)
+**Nouveaux tests** : 55 actifs (RAG complet)
+**Dépendances** : Phase 1 complète ✅
+
+**Note R-024** :
+
+- Pipeline RAG complet opérationnel (chunk → embed → store → search)
+- Tests 100% offline via FakeEmbeddingProvider (RNG seedé, déterministe)
+- Persistence atomique : write .tmp → rename (cohérence garantie)
+- 4 bugs corrigés durant développement (NaN embeddings, repr, conftest chemin, handler signature)
+- Prêt pour intégration ConversationEngine (retrieve_context → inject dans prompt)
+
+**Livrables Phase 2** :
+
+- Tool system complet (definition, registry, executor)
+- @tool decorator pour création simple
+- 4 demo tools fonctionnels
+- Prompt engineering tool calling
+- Test end-to-end validé avec Ollama
+- OpenAI function calling adapter
+- Provider-agnostic architecture
+- Module RAG complet (TextChunker + Embeddings + Similarity + Storage + VectorMemory)
+- 102 nouveaux tests total (49 tools + 53 RAG actifs)
 
 ---
 
@@ -308,14 +373,9 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Rebuild wheel finale avec Ollama ✅
+**Immédiat** : Phase 2 complète ✅
 
-**Court terme** : Phase 2 (Agents & Orchestration)
-
-- Tool calling
-- Agent avec raisonnement
-- Planning multi-step
-- RAG vectoriel
+**Court terme** : Phase 3 (UX)
 
 **Moyen terme** : Phase 3 (UX)
 
@@ -468,17 +528,18 @@ Eva/                                                                    ✅
 ├── .env.example                                                        ✅
 ├── .gitignore                                                          ✅
 ├── MANIFEST.in                                                         ✅
+├── MANIFEST.md                                                         ✅
 ├── PROMPT_EVA                                                          ✅
 ├── pyproject.toml                                                      ✅
 ├── README.md                                                           ✅
 ├── ROADMAP.md                                                          ✅
 │
 ├── data/ # TOUTE persistance ici                                       ✅
+│   ├── cache/ # Cache LLM / embeddings                                 ✅
+│   ├── dumps/ # Exports / snapshots debug                              ✅
 │   ├── logs/ # Logs runtime                                            ✅
 │   ├── memory/ # Mémoire conversationnelle                             ✅
-│   ├── cache/ # Cache LLM / embeddings                                 ✅
-│   ├── prompts/ # Templates de prompts                                 ✅
-│   └── dumps/ # Exports / snapshots debug                              ✅
+│   └── prompts/ # Templates de prompts                                 ✅
 │
 ├── dist/                                                               ✅
 │   ├── eva_assistant-0.1.0.dev0-py3-none-any.whl                       ✅
@@ -489,7 +550,8 @@ Eva/                                                                    ✅
 │   ├── CHANGELOG.md                                                    ✅
 │   ├── CONTRAT.md                                                      ✅
 │   ├── DEBT.md                                                         ✅
-│   └── JOURNAL.md                                                      ✅
+│   ├── JOURNAL.md                                                      ✅
+│   ├── JOURNAL.md.old                                                  ✅
 │   └── PROMPT DE BOOTSTRAP EVA.md                                      ✅
 │
 ├── eva/ # Package Python principal                                     ✅
@@ -501,7 +563,7 @@ Eva/                                                                    ✅
 │   │
 │   ├── agents/                                                         ✅
 │   │   ├── __init__.py                                                 ✅
-│   │   └── agent_base.py # R-020
+│   │   └── agent_base.py # R-021 : Agent Base                         ⏳
 │   │
 │   ├── conversation/                                                   ✅
 │   │   ├── __init__.py                                                 ✅
@@ -509,19 +571,21 @@ Eva/                                                                    ✅
 │   │
 │   ├── core/                                                           ✅
 │   │   ├── __init__.py                                                 ✅
-│   │   ├── eva_component.py # R-005 : Base class universelle           ✅
 │   │   ├── config_manager.py # R-003 : Config centralisée              ✅
-│   │   ├── event_bus.py # R-004 : Bus d'événements                     ✅
+│   │   ├── eva_component.py # R-005 : Base class universelle           ✅
 │   │   ├── eva_engine.py # R-006 : Pipeline principal                  ✅
+│   │   ├── event_bus.py # R-004 : Bus d'événements                     ✅
 │   │   ├── logging_manager.py # R-009                                  ✅
 │   │   └── version_manager.py # R-010                                  ✅
 │   │
 │   ├── data/                                                           ✅
 │   │   ├── memory/                                                     ✅
-│   │   │   └── conversation.json                                       ✅
+│   │   │   └── conversation_YYYY-MM-DD.json # Runtime                  ✅
 │   │   └── prompts/                                                    ✅
+│   │       ├── custom.txt                                              ✅
+│   │       ├── system.txt                                              ✅
 │   │       ├── system_concise.txt                                      ✅
-│   │       └── system.txt                                              ✅
+│   │       └── test_unresolved.txt                                     ✅
 │   │
 │   ├── llm/                                                            ✅
 │   │   ├── __init__.py                                                 ✅
@@ -539,17 +603,41 @@ Eva/                                                                    ✅
 │   │
 │   ├── plugins/                                                        ✅
 │   │   ├── __init__.py                                                 ✅
-│   │   ├── plugin_loader.py # R-015                                    ✅
 │   │   ├── plugin_base.py # R-015                                      ✅
+│   │   ├── plugin_loader.py # R-015                                    ✅
 │   │   └── plugin_registry.py # R-015                                  ✅
 │   │
 │   ├── prompt/                                                         ✅
 │   │   ├── __init__.py                                                 ✅
 │   │   └── prompt_manager.py # R-013                                   ✅
 │   │
+│   ├── rag/ # R-024 : Mémoire vectorielle (RAG)                        ✅
+│   │   ├── __init__.py                                                 ✅
+│   │   ├── chunker.py # TextChunker                                    ✅
+│   │   ├── embeddings_provider.py # Abstract + Fake + Local            ✅
+│   │   ├── similarity_engine.py # CosineSimilarity                     ✅
+│   │   ├── storage.py # VectorStorage (persistence atomique)           ✅
+│   │   └── vector_memory.py # VectorMemory (orchestrateur)             ✅
+│   │
+│   ├── tools/ # R-020 : Tool Calling System                            ✅
+│   │   ├── __init__.py                                                 ✅
+│   │   ├── decorator.py # @tool decorator + auto-schema                ✅
+│   │   ├── demo_tools.py # 4 tools (time, calc, plugins, status)       ✅
+│   │   ├── tool_definition.py # ToolDefinition + OpenAI schema         ✅
+│   │   ├── tool_executor.py # ToolExecutor                             ✅
+│   │   └── tool_registry.py # ToolRegistry                             ✅
+│   │
 │   └── ui/                                                             ✅
 │       ├── __init__.py                                                 ✅
-│       └── terminal_ui.py # R-030 : Point d'émission logs UI
+│       └── terminal_ui.py # R-030 : Point d'émission logs UI          ⏳
+│
+├── eva_assistant.egg-info/ # Généré par pip install -e                 ✅
+│   ├── PKG-INFO                                                        ✅
+│   ├── SOURCES.txt                                                     ✅
+│   ├── dependency_links.txt                                            ✅
+│   ├── entry_points.txt                                                ✅
+│   ├── requires.txt                                                    ✅
+│   └── top_level.txt                                                   ✅
 │
 ├── plugins/ # Plugins tiers / custom                                   ✅
 │   ├── .gitkeep                                                        ✅
@@ -564,8 +652,14 @@ Eva/                                                                    ✅
     ├── smoke/                                                          ✅
     │   └── test_smoke.py # R-008                                       ✅
     └── unit/                                                           ✅
+        ├── conftest.py # Fixtures RAG (FakeEmbeddingProvider, etc.)    ✅
+        ├── test_chunker.py # R-024 RAG                                 ✅
         ├── test_config_manager.py # R-003a                             ✅
+        ├── test_conftest.py # Validation fixtures conftest             ✅
         ├── test_conversation_engine.py # R-014                         ✅
+        ├── test_conversation_tools.py # R-020 Tool Calling             ✅
+        ├── test_demo_tools.py # R-020 Demo Tools                       ✅
+        ├── test_embeddings.py # R-024 RAG                              ✅
         ├── test_eva_component.py # R-005                               ✅
         ├── test_eva_engine.py # R-006                                  ✅
         ├── test_event_bus.py # R-004                                   ✅
@@ -575,7 +669,12 @@ Eva/                                                                    ✅
         ├── test_plugin_loader.py # R-018                               ✅
         ├── test_plugins.py # R-018                                     ✅
         ├── test_prompt_manager.py # R-013                              ✅
+        ├── test_rag_integration.py # R-024 RAG (end-to-end)            ✅
         ├── test_secrets.py # R-003b                                    ✅
+        ├── test_similarity.py # R-024 RAG                              ✅
+        ├── test_storage.py # R-024 RAG                                 ✅
+        ├── test_tools.py # R-020 Tool System                           ✅
+        ├── test_vector_memory.py # R-024 RAG                           ✅
         └── test_version_manager.py # R-010                             ✅
 
 ```

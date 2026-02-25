@@ -2,9 +2,9 @@
 
 Documentation de l'architecture globale du projet EVA.
 
-- Version : 0.1.0-dev
-- Dernière mise à jour : 2026-02-19
-- Phase : P1 (Intelligence de base)
+- Version : 0.1.0-p2
+- Dernière mise à jour : 2026-02-25
+- Phase : P2 (RAG - 100%)
 
 ---
 
@@ -232,6 +232,51 @@ ConfigManager
   - plugins simples (pas d’agent planning, pas de tool calling avancé)
   - agent/tool orchestration = P2
 
+  ***
+
+## Composants P2 — Tool Calling
+
+# Tool System (R-020-023)
+
+- **Architecture** :
+  - Provider-agnostic (format interne EVA neutre)
+  - Ollama : Prompt engineering + JSON custom
+  - OpenAI : Function calling natif
+
+- **Composants** :
+  - **ToolDefinition** (dataclass frozen)
+    - name, description, function, parameters, returns
+    - validate_arguments() avec type checking
+    - to_openai_function() pour conversion OpenAI schema
+  - **ToolRegistry** (EvaComponent)
+    - register(), unregister(), get(), list_tools()
+    - get_all_definitions() pour ConversationEngine
+    - Events : tool_registered, tool_unregistered, registry_cleared
+  - **ToolExecutor** (EvaComponent)
+    - execute(tool_name, arguments) avec validation
+    - Timeout configurable (30s default)
+    - Error handling safe (tool crash ≠ EVA crash)
+    - Events : tool_called, tool_result, tool_error
+  - **@tool decorator**
+    - Création simple tools
+    - Auto-génération ToolDefinition
+    - Helpers : is_tool(), get_tool_definition()
+
+- **ConversationEngine Integration** :
+  - \_detect_tool_call() : Parse JSON `{"action":"tool_call",...}`
+  - Workflow 2 LLM calls : detect → execute → reformule
+  - Memory persistence (tool calls + results)
+  - Event tool_call_detected
+  - tools_openai injection si provider supporte
+
+- **Demo Tools** :
+  - get_time(city) : Heure dans ville
+  - calc(expression) : Calculatrice safe
+  - list_plugins() : Liste plugins
+  - get_status() : Status EVA
+
+---
+
 ## Persistance
 
 - tout runtime dans Eva/data/
@@ -260,44 +305,147 @@ ConfigManager
 
 ## Limitations connues
 
-- P1
-  - session unique (multi-conv = P2)
+- P2 (actuel)
+  - session unique (multi-conv = future)
   - pas de streaming
-  - pas de tool calling
-  - pas de RAG
-- qualité
-  - network guard global pytest : optionnel (peut aller en DEBT si non bloquant)
-  - markers pytest unit/integration : optionnel
+  - ✅ tool calling opérationnel
+  - ✅ RAG vectoriel opérationnel (R-024)
+  - pas de planning multi-step
 
-## 🌊 Flux de Données (Phase 1 — complet)
+---
+
+## Composants R-024 — RAG (Retrieval-Augmented Generation)
+
+# VectorMemory
+
+- responsabilité
+  - orchestrateur du pipeline RAG complet
+  - hérite `EvaComponent` (lifecycle + events)
+  - pipeline `add_document()` : chunk → embed → store
+  - pipeline `search()` : embed query → similarity → top-k
+  - persistence transparente (load au start, save après add)
+- events observabilité
+  - `vector_document_added` : document ajouté (doc_id, num_chunks, total)
+  - `vector_search_performed` : recherche effectuée (query, top_k, num_results)
+  - `vector_index_loaded` : index rechargé depuis disque
+  - `vector_index_cleared` : index vidé
+
+# TextChunker
+
+- responsabilité
+  - découpage texte en chunks avec overlap (sliding window par caractères)
+- paramètres
+  - `chunk_size` : taille chunk (défaut 500 chars)
+  - `chunk_overlap` : overlap entre chunks (défaut 50 chars)
+- garanties
+  - texte vide → `[]`
+  - texte ≤ chunk_size → `[texte]`
+
+# EmbeddingsProvider
+
+- interface abstraite
+  - `embed(text)` → `np.ndarray` (normalisé L2)
+  - `get_embedding_dim()` → `int`
+- implémentations
+  - `FakeEmbeddingProvider` : hash SHA256 → seed RNG → vecteur uniforme normalisé
+    - 100% offline, déterministe (même texte = même vecteur)
+    - Utilisé dans tous les tests unitaires
+  - `LocalEmbeddingProvider` : sentence-transformers, lazy load
+    - Modèle par défaut : `all-MiniLM-L6-v2` (~80 MB)
+    - Cache interne pour éviter re-embed
+
+# CosineSimilarity
+
+- responsabilité
+  - calcul similarité cosinus entre query et corpus
+  - assume vecteurs déjà normalisés L2 (cosine = dot product)
+- complexité : O(n × dim) — acceptable MVP (FAISS prévu P3)
+- validation : shapes + dimensions à chaque appel
+
+# VectorStorage
+
+- responsabilité
+  - persistence atomique index vectoriel sur disque
+  - format : `index.json` (documents + métadonnées) + `index.npz` (vecteurs numpy)
+- écriture atomique : write `.tmp` → `rename` (cohérence garantie)
+- validation compatibilité : détecte mismatch `model_name` ou `embedding_dim`
+
+---
+
+## 🌊 Flux RAG (R-024)
+
+```
+add_document(text, metadata)
+    │
+    ├─→ TextChunker.chunk(text)
+    │       → ["chunk1", "chunk2", ...]
+    │
+    ├─→ EmbeddingsProvider.embed(chunk_i)
+    │       → np.ndarray [embedding_dim]  (normalisé L2)
+    │
+    ├─→ np.vstack([existing_vectors, new_vectors])
+    │
+    ├─→ VectorStorage.save(vectors, documents, model, dim)
+    │       → index.json + index.npz (atomique)
+    │
+    └─→ emit("vector_document_added", {doc_id, num_chunks, total})
+
+
+search(query, top_k)
+    │
+    ├─→ EmbeddingsProvider.embed(query)
+    │       → np.ndarray [embedding_dim]
+    │
+    ├─→ CosineSimilarity.compute_similarity(query_vec, all_vectors)
+    │       → scores [num_docs]  (dot product)
+    │
+    ├─→ np.argsort(scores)[::-1][:top_k]
+    │       → indices triés décroissant
+    │
+    ├─→ format résultats
+    │       → [{"doc_id", "chunk_id", "text", "metadata", "score"}, ...]
+    │
+    └─→ emit("vector_search_performed", {query, top_k, num_results})
+```
+
+---
+
+## 🌊 Flux Tool Calling (Phase 2)
 
 ```
 User Input (CLI)
     │
     ▼
-EVAEngine.process(message)
-    │
-    ▼
 ConversationEngine.respond(message)
     │
-    ├─→ [1] Validation + normalisation
-    │   emit: conversation_request_received
+    ├─→ [1-4] (identique Phase 1)
     │
-    ├─→ [2] MemoryManager.add_message("user", message)
+    ├─→ [5] Construire tools_openai si ToolExecutor présent
     │
-    ├─→ [3] context = MemoryManager.get_context()
-    │   emit: conversation_context_built
-    │
-    ├─→ [4] prompt = PromptManager.render("system", **defaults)
-    │
-    ├─→ [5] messages = [system] + context
-    │
-    ├─→ [6] response = LLMClient.complete(messages, profile)
+    ├─→ [6] response = LLMClient.complete(messages, profile, tools=tools_openai)
     │   emit: llm_request_started
-    │   emit: llm_request_succeeded | llm_request_error
     │
-    ├─→ [7] MemoryManager.add_message("assistant", response)
-    │   emit: conversation_reply_ready
+    ├─→ [7] tool_call = _detect_tool_call(response)
+    │
+    ├─→ [8] SI tool_call détecté :
+    │   │
+    │   ├─→ [8a] emit: tool_call_detected
+    │   │
+    │   ├─→ [8b] result = ToolExecutor.execute(tool_name, arguments)
+    │   │   emit: tool_called, tool_result | tool_error
+    │   │
+    │   ├─→ [8c] MemoryManager.add_message("assistant", tool_call_json)
+    │   │
+    │   ├─→ [8d] MemoryManager.add_message("tool", tool_result)
+    │   │
+    │   ├─→ [8e] messages.append(tool_call + tool_result)
+    │   │
+    │   └─→ [8f] response = LLMClient.complete(messages, profile, tools=tools_openai)
+    │       (reformulation langage naturel)
+    │
+    ├─→ [9] MemoryManager.add_message("assistant", response)
     │
     └─→ return response
 ```
+
+---

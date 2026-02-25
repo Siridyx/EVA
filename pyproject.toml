@@ -24,6 +24,8 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",
+    "numpy>=1.24.0,<2.0.0",
+    "sentence-transformers>=2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +70,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --strict-markers"
+filterwarnings = [
+    "ignore::UserWarning:huggingface_hub",
+]
 markers = [
     "smoke: smoke tests (quick validation)",
     "unit: unit tests",

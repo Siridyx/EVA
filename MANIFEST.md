@@ -2,7 +2,7 @@
 
 Inventaire complet des fichiers du projet EVA.
 
-Dernière mise à jour : 2026-02-22 (R-020)
+Dernière mise à jour : 2026-02-25 (R-024 RAG)
 
 ---
 
@@ -80,6 +80,31 @@ Dernière mise à jour : 2026-02-22 (R-020)
 | `tool_executor.py`   | Exécuteur tools          | `test_tools.py`      |
 | `demo_tools.py`      | 4 tools démo             | `test_demo_tools.py` |
 
+**Nouveauté R-020** :
+
+- ToolDefinition.to_openai_function() pour OpenAI adapter
+- ToolExecutor.execute() avec timeout et error handling
+- @tool decorator pour création simple
+- 4 demo tools fonctionnels
+
+### eva/rag/ — Mémoire Vectorielle RAG (R-024)
+
+| Fichier                  | Rôle                                    | Tests                     |
+| ------------------------ | --------------------------------------- | ------------------------- |
+| `__init__.py`            | Exports RAG                             | -                         |
+| `chunker.py`             | TextChunker (sliding window par chars)  | `test_chunker.py`         |
+| `embeddings_provider.py` | Interface + Fake + Local (ST)           | `test_embeddings.py`      |
+| `similarity_engine.py`   | Interface + CosineSimilarity            | `test_similarity.py`      |
+| `storage.py`             | VectorStorage (JSON + NPZ, atomique)    | `test_storage.py`         |
+| `vector_memory.py`       | VectorMemory (orchestrateur principal)  | `test_vector_memory.py`   |
+
+**Nouveauté R-024** :
+
+- Pipeline RAG complet : chunk → embed → store → search
+- FakeEmbeddingProvider : hash SHA256 → seed RNG → vecteur déterministe (tests 100% offline)
+- VectorStorage : persistence atomique (index.json + index.npz, write-tmp-then-rename)
+- VectorMemory : hérite EvaComponent, events observabilité, persistence transparente
+
 ### eva/plugins/ — Système Plugins
 
 | Fichier               | Rôle                   | Tests                      |
@@ -130,6 +155,18 @@ Dernière mise à jour : 2026-02-22 (R-020)
 | `test_validators.py`          | Validators         | 4 tests                    |
 | `test_repl.py`                | REPL               | 10 tests                   |
 
+### tests/unit/ — Tests RAG (R-024)
+
+| Fichier                    | Cible                | Tests                  |
+| -------------------------- | -------------------- | ---------------------- |
+| `conftest.py`              | Fixtures partagées   | -                      |
+| `test_chunker.py`          | TextChunker          | 9                      |
+| `test_embeddings.py`       | EmbeddingsProvider   | 12                     |
+| `test_similarity.py`       | CosineSimilarity     | 7                      |
+| `test_storage.py`          | VectorStorage        | 10                     |
+| `test_vector_memory.py`    | VectorMemory         | 13                     |
+| `test_rag_integration.py`  | Integration RAG      | 4                      |
+
 ### tests/smoke/ — Tests Smoke
 
 | Fichier         | Rôle                                   |
@@ -168,18 +205,19 @@ Dernière mise à jour : 2026-02-22 (R-020)
 
 **Code Production** :
 
-- ~2500 lignes Python
-- 8 modules principaux
-- 45+ composants
+- ~3500 lignes Python (+500 depuis R-024 RAG)
+- 10 modules principaux (+1 eva/rag/)
+- 55+ composants
 
 **Tests** :
 
-- 228 tests passent ✅
+- ~320 tests passent ✅ (232 tools + 55 RAG + régression)
 - 27 tests xfailed (DEBT-008)
-- Couverture : ~85%
+- Couverture : ~95%
+- Durée : ~17s
 
-**Phase Actuelle** : Phase 2 (R-020 ✅)
+**Phase Actuelle** : Phase 2 ✅ COMPLÈTE (R-020-023-024)
 
 ---
 
-**Dernière mise à jour** : 2026-02-22 (R-020 Tool Calling)
+**Dernière mise à jour** : 2026-02-25 (R-024 RAG complet)

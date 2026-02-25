@@ -97,7 +97,8 @@ class OpenAIProvider(LLMClient):
         messages: List[Dict[str, str]],
         model: str,
         max_tokens: int,
-        temperature: float
+        temperature: float,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
         Implémentation OpenAI de la complétion.

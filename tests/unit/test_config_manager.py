@@ -68,8 +68,51 @@ def test_config_paths_exist():
     ("llm.default_provider", "ollama"),
     ("llm.models.default", "llama3:8b"),
 ])
-
 def test_config_values(key, expected):
     """Valeurs de config correctes."""
     config = ConfigManager()
     assert config.get(key) == expected
+
+
+def test_config_get_path_unknown_key():
+    """get_path() lève KeyError pour clé inconnue."""
+    config = ConfigManager()
+
+    with pytest.raises(KeyError, match="not found"):
+        config.get_path("nonexistent_path_key")
+
+
+def test_config_path_property():
+    """config_path retourne le chemin vers config.yaml."""
+    config = ConfigManager()
+    assert config.config_path.name == "config.yaml"
+    assert isinstance(config.config_path, Path)
+
+
+def test_config_version_property():
+    """version retourne la version depuis la config."""
+    config = ConfigManager()
+    assert config.version == "0.1.0-dev"
+
+
+def test_config_environment_property():
+    """environment retourne l'environnement depuis la config."""
+    config = ConfigManager()
+    assert config.environment == "development"
+
+
+def test_config_repr():
+    """__repr__ est lisible."""
+    config = ConfigManager()
+    r = repr(config)
+    assert "ConfigManager" in r
+    assert "version" in r
+
+
+def test_config_load_invalid_yaml(tmp_path):
+    """_load_config() lève ValueError si YAML pas un dict."""
+    bad_yaml = tmp_path / "config.yaml"
+    bad_yaml.write_text("- item1\n- item2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="expected dict"):
+        ConfigManager(config_path=str(bad_yaml))
