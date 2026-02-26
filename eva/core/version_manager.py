@@ -64,7 +64,7 @@ class VersionManager(EvaComponent):
     # Regex semver
     VERSION_PATTERN = re.compile(
         r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
-        r"(?:-(?P<suffix>[a-z]+))?$"
+        r"(?:-(?P<suffix>[a-z0-9]+))?$"
     )
     
     def __init__(

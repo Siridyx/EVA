@@ -11,14 +11,14 @@ os.environ["EVA_TEST_MODE"] = "1"
 def test_config_manager_init():
     """ConfigManager s'initialise correctement."""
     config = ConfigManager()
-    assert config.version == "0.1.0-dev"
+    assert config.version == "0.2.0-p2"
     assert config.environment == "development"
 
 
 def test_config_get_simple():
     """get() récupère une valeur simple."""
     config = ConfigManager()
-    assert config.get("version") == "0.1.0-dev"
+    assert config.get("version") == "0.2.0-p2"
 
 
 def test_config_get_nested():
@@ -63,7 +63,7 @@ def test_config_paths_exist():
 
 
 @pytest.mark.parametrize("key,expected", [
-    ("version", "0.1.0-dev"),
+    ("version", "0.2.0-p2"),
     ("environment", "development"),
     ("llm.default_provider", "ollama"),
     ("llm.models.default", "llama3:8b"),
@@ -92,7 +92,7 @@ def test_config_path_property():
 def test_config_version_property():
     """version retourne la version depuis la config."""
     config = ConfigManager()
-    assert config.version == "0.1.0-dev"
+    assert config.version == "0.2.0-p2"
 
 
 def test_config_environment_property():

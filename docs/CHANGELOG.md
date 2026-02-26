@@ -228,9 +228,9 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 **Métriques** :
 
-- 232 tests en 15s (+49 tests tools)
+- 356 tests en ~26s (+145 tests Phase 2 : 49 tools + 55 RAG + 43 AgentBase)
 - Coverage ~95%
-- 4/5 items Phase 2 (80%)
+- 6/6 items Phase 2 (100%)
 - 0 dette P0/P1
 
 **Capacités** :
@@ -322,14 +322,13 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
   - ConversationEngine appelle super().**init**(config, event_bus, "ConversationEngine")
 
 - **Tests suite** :
-  - 228 passed, 2 skipped, 27 xfailed (DEBT-008)
-  - +49 tests tools (45 unit + 4 integration)
-  - Total : 277 tests dont 232 passent (84%)
+  - 356 passed, 2 skipped, 27 xfailed
+  - +145 tests Phase 2 (49 tools + 55 RAG + 43 AgentBase)
 
 ### Technical
 
-- **Tests** : 232 passed (+16 depuis Phase 1.1)
-- **Durée** : ~15s (+5s tools tests)
+- **Tests** : 356 passed (+140 depuis Phase 1.1)
+- **Durée** : ~26s
 - **Coverage** : ~95%
 - **Architecture** : Provider-agnostic tool calling
 - **Compatibility** : Ollama (JSON) + OpenAI (native)

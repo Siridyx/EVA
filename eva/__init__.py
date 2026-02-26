@@ -4,7 +4,7 @@ EVA - Assistant IA Personnel
 Un assistant conversationnel intelligent et extensible.
 """
 
-__version__ = "0.1.0-p1"
+__version__ = "0.2.0-p2"
 __author__ = "Siridyx"
 __description__ = "Assistant IA personnel intelligent et extensible"
 

@@ -205,25 +205,9 @@ EVA> Merci !
 
 ---
 
-## PHASE 2 — AGENTS & ORCHESTRATION (P2) ⏳ ✅ (100% complété)
+## PHASE 2 — TOOL CALLING, AGENTS & RAG (P2) ✅ (100% complété)
 
-Objectif : EVA devient intelligent et autonome.
-
-- [x] [P2][L][done] R-020 — Tool Calling (function calling) (deps: R-014) ✅ VALIDÉ
-- [x] [P2][L][done] R-021 — Agent Base (raisonnement + planning) (deps: R-020) ✅ VALIDÉ
-- [x] [P2][M][done] R-022 — Tool Registry (enregistrement + dispatch) (deps: R-020) ✅ VALIDÉ
-- [x] [P2][L][done] R-023 — Planificateur multi-step (deps: R-021, R-022) ✅ VALIDÉ
-- [x] [P2][XL][done] R-024 — Mémoire vectorielle (RAG) (deps: R-011) ✅ VALIDÉ
-
-**Statut** : 5/5 items (100%) ✅
-**Tests** : ~315 passed (~17s)
-**Dépendances** : Phase 1 complète ✅
-
----
-
-## PHASE 2 — TOOL CALLING & ORCHESTRATION (P2) ⏳ (80% complété)
-
-Objectif : EVA appelle des fonctions et outils externes.
+Objectif : EVA appelle des fonctions, raisonne de façon autonome et retrouve des informations pertinentes.
 
 - [x] [P2][L][done] R-020 — Tool Calling System (deps: R-014) ✅ VALIDÉ
   - ToolDefinition, ToolRegistry, ToolExecutor
@@ -262,9 +246,15 @@ Objectif : EVA appelle des fonctions et outils externes.
   - VectorMemory : orchestrateur complet, hérite EvaComponent, lifecycle + events
   - 55 tests unitaires actifs (9+12+7+10+13+4)
 
-**Statut** : 5/5 items (100%) ✅
-**Tests** : ~320 passed (232 tools + 55 RAG + régression)
-**Nouveaux tests** : 55 actifs (RAG complet)
+- [x] [P2][L][done] R-021b — AgentBase (boucle ReAct) (deps: R-020) ✅ VALIDÉ
+  - AgentBase(EvaComponent) : boucle Reason → Act → Observe
+  - AgentResult / AgentStep : dataclasses de traçabilité
+  - run(goal) : exécution autonome jusqu'à final_answer ou max_steps
+  - _parse_response(), _execute_tool(), _build_tools_description()
+  - 43 tests unitaires (lifecycle, run, tool_call, max_steps, parse, execute, events)
+
+**Statut** : 6/6 items (100%) ✅
+**Tests** : 356 passed (~26s)
 **Dépendances** : Phase 1 complète ✅
 
 **Note R-024** :
@@ -285,7 +275,8 @@ Objectif : EVA appelle des fonctions et outils externes.
 - OpenAI function calling adapter
 - Provider-agnostic architecture
 - Module RAG complet (TextChunker + Embeddings + Similarity + Storage + VectorMemory)
-- 102 nouveaux tests total (49 tools + 53 RAG actifs)
+- AgentBase (boucle ReAct autonome)
+- 145 nouveaux tests (49 tools + 55 RAG + 43 AgentBase)
 
 **Capacités EVA Phase 2** :
 
@@ -297,17 +288,18 @@ Objectif : EVA appelle des fonctions et outils externes.
 - ✅ Mémoire vectorielle (chunking + embeddings + search)
 - ✅ RAG integration ConversationEngine
 - ✅ Tests offline déterministes (FakeProvider)
+- ✅ Agent autonome (boucle ReAct, max_steps configurable)
 
 ---
 
-## PHASE 3 — INTERFACE UTILISATEUR (P2)
+## PHASE 3 — INTERFACE UTILISATEUR (P3)
 
 Objectif : UX agréable et accessible.
 
-- [ ] [P2][M][todo] R-030 — Terminal UI (rich/textual) (deps: R-006, R-014)
-- [ ] [P2][M][todo] R-031 — API REST locale (FastAPI) (deps: R-014, R-020)
-- [ ] [P2][S][todo] R-032 — Interface web légère (deps: R-031)
-- [ ] [P2][S][todo] R-033 — CLI avancé (historique, autocomplete) (deps: R-006)
+- [ ] [P3][M][todo] R-030 — Terminal UI (rich/textual) (deps: R-006, R-014)
+- [ ] [P3][M][todo] R-031 — API REST locale (FastAPI) (deps: R-014, R-020)
+- [ ] [P3][S][todo] R-032 — Interface web légère (deps: R-031)
+- [ ] [P3][S][todo] R-033 — CLI avancé (historique, autocomplete) (deps: R-006)
 
 **Statut** : 0/4 items (0%)  
 **Tests** : -  
@@ -315,16 +307,16 @@ Objectif : UX agréable et accessible.
 
 ---
 
-## PHASE 4 — QUALITÉ & PRODUCTION (P2)
+## PHASE 4 — QUALITÉ & PRODUCTION (P4)
 
 Objectif : projet publiable.
 
-- [ ] [P2][M][todo] R-040 — CI/CD (deps: R-008, R-018, R-024)
-- [ ] [P2][S][todo] R-041 — Packaging complet (deps: R-017b)
-- [ ] [P2][M][todo] R-042 — Documentation (deps: R-006, R-014, R-020, R-030)
-- [ ] [P2][S][todo] R-043 — Audit sécurité (deps: R-016, R-041)
-- [ ] [P2][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
-- [ ] [P2][M][todo] R-045 — Test Hardening avancé (deps: R-018)
+- [ ] [P4][M][todo] R-040 — CI/CD (deps: R-008, R-018, R-024)
+- [ ] [P4][S][todo] R-041 — Packaging complet (deps: R-017b)
+- [ ] [P4][M][todo] R-042 — Documentation (deps: R-006, R-014, R-020, R-030)
+- [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-016, R-041)
+- [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
+- [ ] [P4][M][todo] R-045 — Test Hardening avancé (deps: R-018)
   - Network guard (bloquer socket si pas mocké) → DEBT-004
   - Pytest markers (unit vs integration) → DEBT-005
   - Détection EVA_TEST_MODE ou PYTEST_CURRENT_TEST

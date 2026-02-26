@@ -4,9 +4,9 @@
 
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
-Phase actuelle : Phase 1 — Intelligence de Base
-Statut global : ✅ Phase 1 validée
-Dernière mise à jour : 2026-02
+Phase actuelle : Phase 2 — Tool Calling, Agent ReAct, RAG
+Statut global : ✅ Phase 2 validée (100%)
+Dernière mise à jour : 2026-02-26
 
 ### 🎯 Objectif du Journal
 
@@ -226,7 +226,7 @@ Voir DEBT.md
 
 ---
 
-## 📍 Phase 2 — Tool Calling (EN COURS → 80% ✅)
+## 📍 Phase 2 — Tool Calling (100% ✅)
 
 **Objectif** : EVA peut appeler des fonctions et outils externes
 
@@ -359,9 +359,10 @@ Voir DEBT.md
 
 - Phase 1.1 : 216 tests
 - R-020-023 : +49 tests
-- Total : 265 tests dont 232 passent (88%)
-- xfailed : 27 (DEBT-008)
-- Durée : ~15s
+- R-024 (RAG) : +55 tests
+- R-021 (AgentBase) : +43 tests
+- Total : 356 passed (+ 2 skipped, 27 xfailed)
+- Durée : ~26s
 
 **Couverture** :
 
@@ -376,7 +377,7 @@ Voir DEBT.md
 
 ---
 
-## 🎯 Phase 2 — Bilan Partiel (80%)
+## 🎯 Phase 2 — Bilan Final (100%)
 
 **À la fin de R-020-023** :
 
@@ -386,11 +387,12 @@ Voir DEBT.md
 ✅ Tests end-to-end validés
 ✅ Architecture extensible
 
-**Manque pour Phase 2 complète** :
+**Phase 2 complète** :
 
-- R-024 : RAG / Embeddings (XL)
+- ✅ R-024 : RAG / Embeddings
+- ✅ R-021 : AgentBase (ReAct loop)
 
-**Prochaine étape** : R-024 RAG ou clôture Phase 2
+**Prochaine étape** : Phase 3 (Terminal UI, API REST)
 
 ---
 

@@ -46,7 +46,7 @@ def test_version_manager_init(config, event_bus):
     vm = VersionManager(config, event_bus)
     
     assert vm.name == "VersionManager"
-    assert vm.code_version == "0.1.0-dev"
+    assert vm.code_version == "0.2.0-p2"
     assert not vm.is_running
 
 
@@ -54,8 +54,8 @@ def test_parse_version_valid(config, event_bus):
     """parse_version() parse correctement."""
     vm = VersionManager(config, event_bus)
     
-    result = vm.parse_version("0.1.0-dev")
-    assert result == (0, 1, 0, "dev")
+    result = vm.parse_version("0.2.0-p2")
+    assert result == (0, 2, 0, "p2")
     
     result = vm.parse_version("1.2.3")
     assert result == (1, 2, 3, "")
@@ -77,7 +77,7 @@ def test_compare_versions(config, event_bus):
     assert vm.compare_versions("0.1.0", "0.2.0") == -1
     assert vm.compare_versions("1.0.0", "0.9.0") == 1
     assert vm.compare_versions("1.2.3", "1.2.3") == 0
-    assert vm.compare_versions("0.1.0-dev", "0.1.0-alpha") == 0  # Ignore suffix
+    assert vm.compare_versions("0.1.0-p2", "0.1.0-alpha") == 0  # Ignore suffix
 
 
 def test_compare_versions_invalid(config, event_bus):
@@ -92,10 +92,10 @@ def test_write_read_data_version(config, event_bus, version_file):
     """write/read data version."""
     vm = VersionManager(config, event_bus)
     
-    vm.write_data_version("0.1.0-dev")
+    vm.write_data_version("0.2.0-p2")
     
     assert version_file.exists()
-    assert vm.read_data_version() == "0.1.0-dev"
+    assert vm.read_data_version() == "0.2.0-p2"
 
 
 def test_write_invalid_version(config, event_bus, version_file):
@@ -113,7 +113,7 @@ def test_check_first_run(config, event_bus, version_file):
     compatible, code_v, data_v = vm.check()
     
     assert compatible is True
-    assert code_v == "0.1.0-dev"
+    assert code_v == "0.2.0-p2"
     assert data_v is None
     
     # Fichier .version créé
@@ -125,13 +125,13 @@ def test_check_compatible_same_version(config, event_bus, version_file):
     vm = VersionManager(config, event_bus)
     
     # Écrire même version
-    vm.write_data_version("0.1.0-dev")
+    vm.write_data_version("0.2.0-p2")
     
     compatible, code_v, data_v = vm.check()
     
     assert compatible is True
-    assert code_v == "0.1.0-dev"
-    assert data_v == "0.1.0-dev"
+    assert code_v == "0.2.0-p2"
+    assert data_v == "0.2.0-p2"
 
 
 def test_check_compatible_minor_diff(config, event_bus, version_file):
@@ -158,7 +158,7 @@ def test_check_incompatible_major_diff(config, event_bus, version_file):
     
     # Incompatible (breaking changes)
     assert compatible is False
-    assert code_v == "0.1.0-dev"
+    assert code_v == "0.2.0-p2"
     assert data_v == "1.0.0"
 
 
@@ -170,7 +170,7 @@ def test_migrate_no_data_version(config, event_bus, version_file):
     
     assert result is True
     assert version_file.exists()
-    assert vm.read_data_version() == "0.1.0-dev"
+    assert vm.read_data_version() == "0.2.0-p2"
 
 
 def test_migrate_updates_version(config, event_bus, version_file):
@@ -183,7 +183,7 @@ def test_migrate_updates_version(config, event_bus, version_file):
     result = vm.migrate()
     
     assert result is True
-    assert vm.read_data_version() == "0.1.0-dev"
+    assert vm.read_data_version() == "0.2.0-p2"
 
 
 def test_migrate_emits_event(config, event_bus, version_file):
@@ -198,7 +198,7 @@ def test_migrate_emits_event(config, event_bus, version_file):
     
     assert len(events) == 1
     assert events[0]["from_version"] == "0.0.1"
-    assert events[0]["to_version"] == "0.1.0-dev"
+    assert events[0]["to_version"] == "0.2.0-p2"
 
 
 def test_version_manager_start(config, event_bus, version_file):
@@ -219,4 +219,4 @@ def test_version_manager_repr(config, event_bus, version_file):
     
     repr_str = repr(vm)
     assert "VersionManager" in repr_str
-    assert "0.1.0-dev" in repr_str
+    assert "0.2.0-p2" in repr_str

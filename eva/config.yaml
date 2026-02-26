@@ -1,8 +1,8 @@
 # EVA Configuration
-# Version: 0.1.0-dev
-# Phase: P0
+# Version: 0.2.0-p2
+# Phase: P2
 
-version: "0.1.0-dev"
+version: "0.2.0-p2"
 environment: "development"
 
 # Chemins de persistance (relatifs à la racine Eva/)

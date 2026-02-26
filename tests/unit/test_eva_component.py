@@ -178,7 +178,7 @@ def test_component_emit(config, event_bus):
 def test_component_get_config(config, event_bus):
     """get_config() récupère config."""
     comp = MockComponent(config, event_bus)
-    assert comp.get_config("version") == "0.1.0-dev"
+    assert comp.get_config("version") == "0.2.0-p2"
 
 @pytest.mark.xfail(reason="DEBT-008: Paths hors tmp_path")
 def test_component_get_path(config, event_bus):
