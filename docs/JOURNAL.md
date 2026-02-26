@@ -3,8 +3,8 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 3 — Interface Utilisateur (en cours)
-Statut global : Phase 2 ✅ — Phase 3 🔄 (R-033 validé)
-Dernière mise à jour : 2026-02-26
+Statut global : Phase 2 ✅ — Phase 3 🔄 (R-030 validé)
+Dernière mise à jour : 2026-02-27
 
 ### 🎯 Objectif du Journal
 
@@ -509,7 +509,7 @@ R-030 (Textual), R-031 (FastAPI) utiliseront exactement le même `CommandRegistr
 
 **Ordre d'implémentation** :
 1. R-033 — Command Registry (contrat first) ✅
-2. R-030 — Terminal UI Textual (construit sur R-033)
+2. R-030 — Terminal UI Textual (construit sur R-033) ✅
 3. R-031 — API REST FastAPI (construit sur R-033)
 4. R-032 — Interface web légère (construit sur R-031)
 
@@ -532,4 +532,74 @@ Un seul point de sortie utilisateur. L'UI affiche, les handlers retournent. Pas 
 - Durée suite : ~27s
 - Niveau : PRO
 
-✅ Fin JOURNAL (mis à jour Phase 3 — R-033)
+---
+
+### 🔹 R-030 — Terminal UI Textual
+
+**Statut** : ✅ VALIDÉ
+
+**Contexte** :
+R-033 a défini le contrat. R-030 construit le Terminal UI par-dessus, sans modifier le registry.
+
+**Architecture** :
+
+```
+EvaTuiApp(App)
+    │
+    ├─→ compose() : Header | Horizontal(ChatView + StatusSidebar) | EvaInput | Footer
+    │
+    ├─→ on_mount() : _init_eva() → ConfigManager, EventBus, MemoryManager, PromptManager,
+    │                              OllamaProvider, ConversationEngine, EVAEngine
+    │
+    ├─→ on_input_submitted() : dispatch /commande → CommandRegistry | message → worker
+    │
+    └─→ _llm_worker() : asyncio.to_thread(engine.process, text) → call_from_thread()
+```
+
+**Composants** :
+- `ChatView(Vertical)` : `add_message()`, `replace_thinking()`, scroll auto
+- `MessageWidget(Static)` : rendu coloré (msg-eva, msg-user, msg-sys, msg-err)
+- `StatusSidebar(Static)` : `_render_status()` / `_render_no_engine()` → RUNNING/STOPPED
+- `EvaInput(Input)` : `on_key(Tab)` → `registry.get_completions()` → complète si unique
+- Bindings : `Ctrl+Q`, `F1`, `Ctrl+L`
+
+**Décision clé — conflit `_registry`** :
+Textual utilise `self._registry` en interne. Renommage en `self._cmd_registry` pour éviter le conflit.
+
+**Dépendances ajoutées** :
+- `textual>=0.65.0` (installé : 8.0.0)
+- `pytest-asyncio>=0.23.0` (installé : 1.2.0)
+
+**Tests** : 42 tests
+- 7 `TestStatusSidebarRender` — rendu sans UI
+- 6 `TestTheme` — TCSS existence + contenu
+- 7 `TestEvaTuiAppInit` — attributs initiaux
+- 3 `TestCLITuiFlag` — flag --tui
+- 5 `TestDispatchLogic` — dispatch commandes/messages
+- 2 `TestEvaInput` — instanciation
+- 10 `TestEvaTuiSmoke` — smoke tests Textual avec pilot
+- 2 `TestTuiInit` — module __init__
+
+**Suite complète** : 487 passed (~14s), 0 régression
+
+---
+
+## 📊 Métriques Phase 3 (partielle)
+
+**Tests** :
+- R-033 : +89 tests
+- R-030 : +42 tests
+- Total : 487 passed
+- Durée : ~14s
+
+---
+
+## 📦 Annexes — Chiffres Clés
+
+- Modules : 30+
+- Tests : 487
+- Coverage : ~95%
+- Durée suite : ~14s
+- Niveau : PRO
+
+✅ Fin JOURNAL (mis à jour Phase 3 — R-030)

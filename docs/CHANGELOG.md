@@ -10,6 +10,21 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
+- **Terminal UI Textual (R-030)** : Interface graphique en terminal — `eva --tui`
+  - `EvaTuiApp(App)` : application Textual, layout split chat 70% / sidebar 30%
+  - `ChatView(Vertical)` : messages scrollables, `add_message()`, `replace_thinking()` pour réponse LLM non-bloquante
+  - `MessageWidget(Static)` : rendu coloré par sender (EVA cyan, Toi blanc, système gris, erreur rouge)
+  - `StatusSidebar(Static)` : statut moteur RUNNING/STOPPED + composants LLM/Mémoire/Conv
+  - `EvaInput(Input)` : Tab autocomplete sur commandes /... via `CommandRegistry.get_completions()`
+  - Worker async : `asyncio.to_thread(engine.process, text)` — LLM non-bloquant, UI toujours réactive
+  - Bindings : `Ctrl+Q` quitter, `F1` aide dans chat, `Ctrl+L` effacer chat
+  - Thème sombre cyan/bleu (`#0a0a1a` fond, `#00d4ff` couleur principale)
+  - TCSS : `styles.tcss` — 11 sélecteurs (Screen, Header, Footer, #chat, #sidebar, EvaInput, 5 classes msg)
+  - Zéro I/O en dehors de l'UI : contrat R-033 respecté (CommandRegistry partagé)
+  - `textual>=0.65.0` ajouté aux dépendances + `pytest-asyncio>=0.23.0` en dev
+  - `eva/cli.py` : flag `--tui` (REPL reste le défaut sans flag)
+  - 42 tests unitaires (rendu sidebar, TCSS, attributs, dispatch, smoke Textual avec pilot)
+
 - **Command Registry + CLI avancé (R-033)** : Phase 3 démarrée — contrat commandes unifié
   - `Command(name, help, handler(args, ctx) → CommandResult)` — contrat partagé CLI / Textual / API REST
   - `CommandResult(success, output, event, event_payload, should_quit)` — zéro I/O dans les handlers

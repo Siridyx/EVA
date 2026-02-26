@@ -3,6 +3,7 @@ CLI principal pour EVA
 
 Usage:
     eva                 # Lance REPL interactif
+    eva --tui           # Lance le Terminal UI (Textual)
     eva --version       # Affiche version
     eva --help          # Aide
 """
@@ -33,12 +34,21 @@ def main():
         type=str,
         help="Chemin vers config.yaml personnalisé"
     )
-    
+
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Lance le Terminal UI (Textual)"
+    )
+
     args = parser.parse_args()
-    
-    # Lancer REPL
-    from eva.repl import main as repl_main
-    return repl_main()
+
+    if args.tui:
+        from eva.ui.tui.app import main as tui_main
+        return tui_main()
+    else:
+        from eva.repl import main as repl_main
+        return repl_main()
 
 
 if __name__ == "__main__":

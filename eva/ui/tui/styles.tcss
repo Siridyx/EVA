@@ -1,0 +1,91 @@
+/* EVA TUI — Thème sombre cyan/bleu (R-030) */
+
+Screen {
+    background: #0a0a1a;
+    color: #c0d8ff;
+}
+
+Header {
+    background: #0d0d2b;
+    color: #00d4ff;
+    border-bottom: heavy #003366;
+}
+
+Footer {
+    background: #0d0d2b;
+    color: #405080;
+}
+
+/* Layout split : chat 70% / sidebar 30% */
+#main-layout {
+    height: 1fr;
+}
+
+#chat {
+    width: 70%;
+    border-right: solid #1a1a3a;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+#sidebar {
+    width: 30%;
+    background: #08081e;
+    padding: 1 2;
+    color: #607090;
+    overflow-y: auto;
+}
+
+/* Champ de saisie */
+#input-bar {
+    height: 3;
+    background: #0a0a1a;
+    border-top: solid #1a1a3a;
+    padding: 0 1;
+}
+
+EvaInput {
+    background: #0f0f28;
+    border: solid #003366;
+    color: #e0e8ff;
+    width: 1fr;
+}
+
+EvaInput:focus {
+    border: solid #00d4ff;
+}
+
+/* Styles messages */
+.msg-eva {
+    color: #00d4ff;
+}
+
+.msg-user {
+    color: #e0e8ff;
+}
+
+.msg-sys {
+    color: #405070;
+}
+
+.msg-err {
+    color: #ff4060;
+}
+
+/* Sidebar — sections */
+.sidebar-title {
+    color: #00d4ff;
+    text-style: bold;
+}
+
+.sidebar-separator {
+    color: #1a1a3a;
+}
+
+.status-running {
+    color: #00d464;
+}
+
+.status-stopped {
+    color: #ff4060;
+}

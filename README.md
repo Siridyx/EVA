@@ -9,8 +9,8 @@ EVA est un assistant IA local, extensible et testable, conçu comme un véritabl
 | Indicateur       | Valeur                        |
 | ---------------- | ----------------------------- |
 | **Version**      | 0.2.0-p2                      |
-| **Phase**        | 3 en cours 🔄 (R-033 ✅)       |
-| **Tests**        | 445 (≈95% coverage, ~27s)     |
+| **Phase**        | 3 en cours 🔄 (R-030 ✅)       |
+| **Tests**        | 487 (≈95% coverage, ~14s)     |
 | **Provider**     | Ollama local (gratuit)        |
 | **Python**       | 3.9 strict                    |
 
@@ -28,6 +28,13 @@ EVA est un assistant IA local, extensible et testable, conçu comme un véritabl
 - `@tool` decorator pour créer des tools en une ligne
 - 4 demo tools : `get_time`, `calc`, `list_plugins`, `get_status`
 - Architecture provider-agnostic (Ollama JSON + OpenAI natif)
+
+### 🖥️ Terminal UI (Textual)
+- `EvaTuiApp` : interface graphique en terminal (`eva --tui`)
+- Layout split : chat scrollable 70% / sidebar statut 30%
+- Appels LLM non-bloquants (worker thread) — UI toujours réactive
+- Tab autocomplete + Ctrl+Q quit + F1 aide + Ctrl+L clear
+- Thème sombre cyan/bleu
 
 ### 🤖 Agent Autonome
 - `AgentBase` : boucle **ReAct** (Reason → Act → Observe)
@@ -83,8 +90,11 @@ ollama serve
 ## 💻 Usage
 
 ```bash
-# Lancer EVA en mode interactif
+# REPL interactif (défaut)
 eva
+
+# Terminal UI graphique (Textual)
+eva --tui
 
 # Commandes disponibles dans le REPL
 /start    # Démarrer la session
@@ -112,7 +122,8 @@ EVA/
 │   ├── prompt/             # Templates de prompts
 │   ├── rag/                # Mémoire vectorielle (RAG)
 │   ├── tools/              # Tool calling system
-│   └── ui/                 # Command Registry (CLI · Textual · API REST)
+│   └── ui/                 # Command Registry + TUI
+│       └── tui/            # Terminal UI Textual (R-030)
 ├── plugins/                # Plugins tiers / custom
 ├── data/                   # Runtime (logs, memory, cache)
 ├── tests/                  # Suite de tests
@@ -138,8 +149,8 @@ pytest tests/unit/test_agent_base.py -v
 
 | Métrique       | Valeur  |
 | -------------- | ------- |
-| Tests totaux   | 445     |
-| Durée          | ~27s    |
+| Tests totaux   | 487     |
+| Durée          | ~14s    |
 | Coverage       | ~95%    |
 
 ---
@@ -152,7 +163,7 @@ pytest tests/unit/test_agent_base.py -v
 | Phase 1   | ✅ Complète | Conversation, LLM, Prompts, Plugins  |
 | Phase 1.1 | ✅ Complète | Provider Ollama local                |
 | Phase 2   | ✅ Complète | Tool Calling, Agent ReAct, RAG       |
-| Phase 3   | 🔄 En cours | CLI avancé ✅, Terminal UI, API REST  |
+| Phase 3   | 🔄 En cours | CLI avancé ✅, Terminal UI ✅, API REST |
 | Phase 4   | ⏳ À venir  | CI/CD, Audit, Performance            |
 
 ---

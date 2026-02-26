@@ -3,8 +3,8 @@
 Documentation de l'architecture globale du projet EVA.
 
 - Version : 0.2.0-p2
-- Dernière mise à jour : 2026-02-26
-- Phase : P3 (CLI avancé R-033 ✅)
+- Dernière mise à jour : 2026-02-27
+- Phase : P3 (R-033 ✅ — R-030 ✅)
 
 ---
 
@@ -253,6 +253,31 @@ search(query, top_k)
 
 ## 🔧 Composants Phase 3 (Interface)
 
+### Terminal UI / Textual (R-030)
+
+Interface graphique en terminal. Lancement : `eva --tui`.
+
+```
+EvaTuiApp(App)
+    │
+    ├─→ compose() : Header | Horizontal(ChatView + StatusSidebar) | EvaInput | Footer
+    │
+    ├─→ on_mount() : _init_eva() → composants EVA complets
+    │
+    ├─→ on_input_submitted() : dispatch commande vs message
+    │   ├─→ /cmd → _run_command() → CommandRegistry.execute()
+    │   └─→ msg  → _run_message() → run_worker(_llm_worker)
+    │
+    └─→ _llm_worker() : asyncio.to_thread(engine.process) → call_from_thread()
+```
+
+- `ChatView` : messages scrollables, `add_message()`, `replace_thinking()` (LLM non-bloquant)
+- `StatusSidebar` : statut RUNNING/STOPPED + LLM/Mémoire/Conv
+- `EvaInput` : Tab autocomplete via `CommandRegistry.get_completions()`
+- Bindings : `Ctrl+Q` quit, `F1` help, `Ctrl+L` clear chat
+- TCSS : `styles.tcss` (thème sombre #0a0a1a / cyan #00d4ff)
+- **Note** : `_cmd_registry` (pas `_registry` — réservé par Textual)
+
 ### Command Registry (R-033)
 
 Contrat unique partagé par CLI, Terminal UI (R-030) et API REST (R-031) :
@@ -317,9 +342,12 @@ EVA/
 │   │   ├── tool_executor.py
 │   │   ├── decorator.py
 │   │   └── demo_tools.py
-│   ├── ui/                     # Contrat Command Registry (R-033)
+│   ├── ui/                     # Contrat Command Registry (R-033) + TUI
 │   │   ├── command_registry.py # Command, CommandResult, CommandContext
-│   │   └── commands.py         # Handlers par défaut (zero I/O)
+│   │   ├── commands.py         # Handlers par défaut (zero I/O)
+│   │   └── tui/                # Terminal UI Textual (R-030)
+│   │       ├── app.py          # EvaTuiApp, ChatView, StatusSidebar, EvaInput
+│   │       └── styles.tcss     # Thème sombre cyan/bleu
 │   ├── cli.py                  # Point d'entrée `eva` (argparse)
 │   └── repl.py                 # REPL : readline + dispatch registry
 ├── plugins/                    # Plugins tiers / custom
@@ -342,7 +370,7 @@ Isolation :
 - Aucun accès réseau réel en tests unitaires
 
 Métriques actuelles :
-- **445 tests** passent en **~27s**
+- **487 tests** passent en **~14s**
 - Coverage : ~95%
 
 ---
@@ -354,3 +382,4 @@ Métriques actuelles :
 - EventBus synchrone (async prévu Phase 4 — DEBT-001)
 - Pipeline séquentiel uniquement (parallèle = DEBT-002)
 - CosineSimilarity O(n×dim) — FAISS prévu si index > 100k chunks
+- TUI : pas de support natif du streaming (replace_thinking post-hoc)

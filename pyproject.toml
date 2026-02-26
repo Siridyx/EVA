@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eva-assistant"
-version = "0.1.0-dev"
+version = "0.2.0-p2"
 description = "Assistant IA personnel — propre, modulaire, maintenable"
 readme = "README.md"
 requires-python = ">=3.9,<3.10"
@@ -26,12 +26,14 @@ dependencies = [
     "requests>=2.31.0",
     "numpy>=1.24.0,<2.0.0",
     "sentence-transformers>=2.2.0",
+    "textual>=0.65.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "pytest-asyncio>=0.23.0",
     "black>=23.0",
     "flake8>=6.0",
     "mypy>=1.0",

@@ -3,8 +3,8 @@
 Feuille de route du projet EVA (Assistant IA Personnel).
 
 **Version** : 0.2.0-p2
-**Dernière mise à jour** : 2026-02-26
-**Phase actuelle** : Phase 2 (Tool Calling & RAG) — 100%
+**Dernière mise à jour** : 2026-02-27
+**Phase actuelle** : Phase 3 (Interface Utilisateur) — 50%
 
 ---
 
@@ -27,10 +27,10 @@ Créer un assistant IA personnel :
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
-| Phase 3   | 🔄 WIP  | 25% (1/4)   | 445   | ~27s   |
+| Phase 3   | 🔄 WIP  | 50% (2/4)   | 487   | ~14s   |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
-**Total items complétés** : 25/34 (74%)
+**Total items complétés** : 26/34 (76%)
 
 ---
 
@@ -306,12 +306,22 @@ Objectif : UX agréable et accessible.
   - REPL refactorisé : couche I/O mince, dispatch via registry
   - Contrat partagé CLI / Textual (R-030) / API REST (R-031)
   - 89 tests unitaires
-- [ ] [P3][M][todo] R-030 — Terminal UI (rich/textual) (deps: R-033)
+- [x] [P3][M][done] R-030 — Terminal UI Textual (deps: R-033) ✅ VALIDÉ
+  - `EvaTuiApp(App)` : layout split chat 70% / sidebar 30%
+  - `ChatView` : messages scrollables, replace_thinking pour réponse LLM
+  - `StatusSidebar` : statut moteur (RUNNING/STOPPED), LLM, mémoire, conv
+  - `EvaInput` : Tab autocomplete sur commandes /... via CommandRegistry
+  - Worker async (`asyncio.to_thread`) — appels LLM non-bloquants
+  - Bindings : Ctrl+Q (quitter), F1 (aide), Ctrl+L (effacer chat)
+  - Thème sombre cyan/bleu (#0a0a1a / #00d4ff)
+  - Lancement : `eva --tui`
+  - Dépendance : `textual>=0.65.0`
+  - 42 tests unitaires (rendu, TCSS, attributs, dispatch, smoke Textual)
 - [ ] [P3][M][todo] R-031 — API REST locale (FastAPI) (deps: R-033, R-020)
 - [ ] [P3][S][todo] R-032 — Interface web légère (deps: R-031)
 
-**Statut** : 1/4 items (25%) 🔄
-**Tests** : 445 passed (~27s)
+**Statut** : 2/4 items (50%) 🔄
+**Tests** : 487 passed (~14s)
 **Dépendances** : Phase 1 + Phase 2
 
 ---
@@ -342,13 +352,13 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur    | Objectif          |
 | ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 356       | 200+ (P2 complet) |
-| **Durée tests**    | ~26s      | <30s              |
+| **Tests totaux**   | 487       | 200+ (P2 complet) |
+| **Durée tests**    | ~14s      | <30s              |
 | **Coverage**       | ~95%      | > 90%             |
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |
 | **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P2 (100%) | P2 (100%)         |
+| **Phase actuelle** | P3 (50%)  | P3 (100%)         |
 
 ---
 
