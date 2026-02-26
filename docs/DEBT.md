@@ -2,7 +2,7 @@
 
 Tracker des dettes techniques identifiées dans EVA.
 
-**Dernière mise à jour** : 2026-02-21
+**Dernière mise à jour** : 2026-02-26
 
 ---
 
@@ -197,35 +197,31 @@ Tracker des dettes techniques identifiées dans EVA.
 
 ---
 
-### [DEBT-008] Tests suite cleanup (30 tests restants)
+### [DEBT-008] Tests xfailed résiduels (27 tests)
 
 - **Priorité** : P2 (qualité)
 - **Phase** : Phase 4 (Qualité)
 - **Effort** : M (~3h)
-- **Impact** : 100% tests verts (actuellement 88%)
+- **Impact** : Passage de 27 xfailed → 0 xfailed (tests verts complets)
 - **Description** :
-  - 30 tests échouent suite modifications Phase 1.1/R-020
+  - 27 tests marqués `xfail` (attendus en échec) suite à des évolutions Phase 1.1/R-020
   - Catégories :
-    - **Prompts invalides** : 17 tests ConversationEngine utilisent prompts avec `{{missing_var}}`
-    - **Paths data/** : 9 tests LoggingManager tentent d'écrire dans data/ réel (hors tmp_path)
-    - **Events manquants** : 3 tests attendent anciens events (conversation_request_received, etc.)
-    - **Divers** : 1 test .env.example
+    - **Prompts invalides** : ConversationEngine avec placeholders manquants (`{{missing_var}}`)
+    - **Paths data/** : LoggingManager écrivant hors `tmp_path`
+    - **Events obsolètes** : Tests attendant anciens noms d'events
+  - État actuel : 445 passed, 2 skipped, 27 xfailed — suite stable et rapide (~27s)
 - **Fichiers concernés** :
-  - `tests/unit/test_conversation_engine.py` (17 tests)
-  - `tests/unit/test_logging_manager.py` (9 tests)
-  - `tests/smoke/test_smoke.py` (2 tests)
-  - `tests/unit/test_eva_component.py` (1 test)
-  - `tests/unit/test_secrets.py` (1 test)
+  - `tests/unit/test_conversation_engine.py`
+  - `tests/unit/test_logging_manager.py`
+  - `tests/smoke/test_smoke.py`
 - **Plan de résolution** :
-  - **Prompts** : Créer fixture `valid_prompts` avec system.txt sans placeholders manquants
-  - **Logging** : LoggingManager doit créer parent directories avant FileHandler
-  - **Events** : Supprimer tests d'events obsolètes ou mettre à jour events émis
-  - **Paths** : Tous tests doivent utiliser tmp_path (déjà couvert par conftest normalement)
+  - Créer fixture `valid_prompts` sans placeholders manquants
+  - Vérifier isolation LoggingManager dans tous les tests
+  - Mettre à jour ou supprimer tests d'events obsolètes
 - **Rationale** :
-  - 88% tests verts = acceptable pour Phase 2 (MVP tools)
-  - Fix complet = Phase 4 (Quality)
-  - Tests tools (33) passent tous ✅
-- **Créé** : 2026-02-22 (R-020 Step 6)
+  - Suite actuelle stable et déterministe — xfailed non bloquants
+  - Fix complet = Phase 4 (Quality / R-045)
+- **Créé** : 2026-02-22 (R-020), mis à jour 2026-02-26
 
 ---
 
@@ -273,4 +269,4 @@ Aucune pour l'instant (toutes les dettes actives).
 
 ---
 
-**Dernière review** : 2026-02-21 (Fin Phase 1.1)
+**Dernière review** : 2026-02-26 (Début Phase 3 — R-033 validé)

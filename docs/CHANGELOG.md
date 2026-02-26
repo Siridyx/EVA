@@ -232,10 +232,11 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 **Convention versioning** : [MAJOR.MINOR.PATCH]-[PHASE]
 
 - 0.1.0-dev = Phase 0
-- 0.1.0-p1 = Phase 1 complete
-- 0.2.0 = Phase 2
+- 0.1.0-p1 = Phase 1 complète
+- 0.2.0-p2 = Phase 2 complète
+- 0.3.0-p3 = Phase 3 complète (à venir)
 
-## [0.1.0-p2] - 2026-02-24
+## [0.2.0-p2] - 2026-02-24
 
 ### Summary
 

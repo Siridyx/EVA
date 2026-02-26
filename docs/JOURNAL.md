@@ -1,24 +1,24 @@
-.
-
 ### 📘 JOURNAL — EVA Project
 
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
-Phase actuelle : Phase 2 — Tool Calling, Agent ReAct, RAG
-Statut global : ✅ Phase 2 validée (100%)
+Phase actuelle : Phase 3 — Interface Utilisateur (en cours)
+Statut global : Phase 2 ✅ — Phase 3 🔄 (R-033 validé)
 Dernière mise à jour : 2026-02-26
 
 ### 🎯 Objectif du Journal
 
 Ce journal sert à :
 
-- Tracer toute l’évolution du projet EVA
-- Documenter les décisions
-- Garder l’historique des validations
+- Tracer toute l'évolution du projet EVA
+- Documenter les décisions techniques
+- Garder l'historique des validations
 - Centraliser incidents et optimisations
 - Préparer les phases futures
 
 Aucune information critique ne doit être perdue.
+
+---
 
 ### 📍 Phase 0 — Core System (COMPLÉTÉE ✅)
 
@@ -52,7 +52,9 @@ R-010     VersionManager    ✅
 - Création DEBT-003 : Test hardening global (R-008 → R-018)
 - Décision : Acceptées comme dette P2 (non bloquantes)
 
-### 📍 Phase 1 — Intelligence de Base (EN COURS → VALIDÉE ✅)
+---
+
+### 📍 Phase 1 — Intelligence de Base (VALIDÉE ✅)
 
 🔹 R-011 — MemoryManager
 Statut : ✅ Validé
@@ -199,12 +201,11 @@ Philosophie
 
 ```
 ID                     Sujet                              Phase
-DEBT-001               EventBus async                     P2
-DEBT-002               Pipeline parallèle                 P2
-DEBT-003               Test hardening global              P2
-DEBT-004               Network Guard pytest               P2
-DEBT-005               Markers pytest                     P2
-DEBT-006               CI/CD automatisé                   P2
+DEBT-001               EventBus async                     P4
+DEBT-002               Pipeline parallèle                 P4
+DEBT-003               Test hardening global              P4
+DEBT-004               Network Guard pytest               P4
+DEBT-005               Markers pytest                     P4
 
 Voir DEBT.md
 ```
@@ -276,7 +277,7 @@ Voir DEBT.md
 **Incidents** :
 
 - Ordre paramètres EvaComponent inversé (fix : config, event_bus, name)
-- Cache Python .pyc (fix : delete **pycache**)
+- Cache Python .pyc (fix : delete __pycache__)
 - Classe ToolDefinition dupliquée (fix : suppression duplication)
 
 ---
@@ -319,8 +320,6 @@ Voir DEBT.md
 3. Reformulation langage naturel par LLM
 4. Memory persistence
 
-**Script** : test_ollama_tools.py (temporaire, supprimé après validation)
-
 ---
 
 ### 🔹 R-023 — OpenAI Function Calling Adapter
@@ -341,64 +340,11 @@ Voir DEBT.md
 - OllamaProvider.\_do_complete(tools=...) → ignore (prompt engineering)
 - ConversationEngine construit tools_openai si executor présent
 
-**Conversion** :
-
-- EVA format : `{"tool_name": "calc", "arguments": {"expression": "2+3"}}`
-- OpenAI schema : `{"type": "function", "function": {...}}`
-- OpenAI response : tool_calls → converti vers format EVA
-
 **Backward compatible** : OllamaProvider ignore tools parameter
 
 **Tests** : 4 tests integration (100% pass)
 
 ---
-
-## 📊 Métriques Phase 2
-
-**Tests** :
-
-- Phase 1.1 : 216 tests
-- R-020-023 : +49 tests
-- R-024 (RAG) : +55 tests
-- R-021 (AgentBase) : +43 tests
-- Total : 356 passed (+ 2 skipped, 27 xfailed)
-- Durée : ~26s
-
-**Couverture** :
-
-- Tools : 100%
-- Integration : 100%
-- Global : ~95%
-
-**Dettes** :
-
-- DEBT-008 : 27 tests xfailed (prompts, logging, events)
-- Aucune nouvelle dette P0/P1
-
----
-
-## 🎯 Phase 2 — Bilan Final (100%)
-
-**À la fin de R-020-023** :
-
-✅ Tool calling fonctionnel
-✅ Provider-agnostic (Ollama + OpenAI)
-✅ Demo tools opérationnels
-✅ Tests end-to-end validés
-✅ Architecture extensible
-
-**Phase 2 complète** :
-
-- ✅ R-024 : RAG / Embeddings
-- ✅ R-021 : AgentBase (ReAct loop)
-
-**Prochaine étape** : Phase 3 (Terminal UI, API REST)
-
----
-
----
-
-## 📍 Phase 2 — RAG (EN COURS → VALIDÉ ✅)
 
 ### 🔹 R-024 — Mémoire Vectorielle (RAG)
 
@@ -425,76 +371,34 @@ search(query, top_k)
     └─→ emit(vector_search_performed)
 ```
 
-**Composants implémentés** :
-
-- `TextChunker` : découpage par caractères avec overlap (sliding window)
-  - `chunk_size` configurable (défaut 500)
-  - `chunk_overlap` configurable (défaut 50)
-  - Validation paramètres à l'init
-- `EmbeddingsProvider` : interface abstraite (`embed()`, `get_embedding_dim()`)
-  - `FakeEmbeddingProvider` : hash SHA256 → seed RNG → vecteur uniforme → normalisation L2
-  - `LocalEmbeddingProvider` : sentence-transformers, lazy load
-- `CosineSimilarity` : dot product sur vecteurs pré-normalisés L2
-  - Validation shapes et dimensions à l'appel
-- `VectorStorage` : persistence atomique (write .tmp → rename)
-  - Métadonnées : `model_name`, `embedding_dim`, `created_at`
-  - `validate_compatibility()` : détecte mismatch modèle/dimension
-- `VectorMemory` : orchestrateur principal (hérite `EvaComponent`)
-  - Lifecycle `start()` → load index si existe
-  - Lifecycle `stop()` → save index si modifié
-  - `add_document()` → pipeline chunk+embed+store
-  - `search()` → embed query + similarity + top-k
-  - `clear()` → reset index
-
 **Tests** : 55 actifs (9+12+7+10+13+4)
-
-```
-Fichier                    Tests              Cible
-test_chunker.py            9                  TextChunker
-test_embeddings.py         12                 EmbeddingsProvider (Fake + Local)
-test_similarity.py         7                  CosineSimilarity
-test_storage.py            10                 VectorStorage
-test_vector_memory.py      13                 VectorMemory
-test_rag_integration.py    4                  Integration end-to-end
-```
 
 **Incidents & Fixes** :
 
 🟡 Incident 1 — NaN dans FakeEmbeddingProvider
-- Cause : `np.frombuffer(sha256_bytes, dtype=float32)` interprète les bits SHA256 comme floats → certains patterns forment des NaN/Inf
-- Fix : `np.random.default_rng(seed)` seedé avec `int.from_bytes(hash_bytes[:8], 'big')` → garantit des valeurs valides, reste déterministe
+- Cause : `np.frombuffer(sha256_bytes, dtype=float32)` → NaN/Inf
+- Fix : `np.random.default_rng(seed)` seedé via SHA256 → déterministe + valide
 
 🟡 Incident 2 — `AttributeError: 'VectorMemory' has no attribute 'state'`
-- Cause : `VectorMemory.__repr__` utilisait `self.state` qui n'existe pas dans `EvaComponent`
-- Fix : calcul inline `"running" if self._running else ("started" if self._started else "stopped")`
+- Cause : `__repr__` utilisait `self.state` inexistant
+- Fix : calcul inline via `self._running` / `self._started`
 
 🟡 Incident 3 — `FileNotFoundError: tests/config.yaml`
-- Cause : `conftest.py` calculait `parent.parent` depuis `tests/unit/` → atterrissait dans `tests/`
-- Fix : `parent.parent.parent / "eva" / "config.yaml"` (3 niveaux + sous-dossier)
+- Cause : `conftest.py` — chemin `parent.parent` incorrect
+- Fix : `parent.parent.parent / "eva" / "config.yaml"`
 
 🟡 Incident 4 — Events non reçus dans tests
-- Cause : handler `def handler(event, payload)` avec 2 args alors que `EventBus` appelle `handler(payload)` → crash silencieux (EventBus absorbe les exceptions)
-- Fix : lambdas `lambda p: events_received.append("vector_document_added")`
-
-**Métriques** :
-
-```
-Tests avant corrections : 9/13 (69%)
-Tests après corrections  : 13/13 (100%)
-```
+- Cause : handler `def handler(event, payload)` — EventBus appelle `handler(payload)`
+- Fix : lambdas `lambda p: events_received.append(...)`
 
 ---
 
----
-
-## 📍 Phase 2 — AgentBase (2026-02-26 ✅)
-
-### 🔹 R-021 — AgentBase (boucle ReAct)
+### 🔹 R-021b — AgentBase (boucle ReAct)
 
 **Statut** : ✅ VALIDÉ
 
 **Contexte** :
-Le fichier `eva/agents/agent_base.py` existait dans l'arborescence cible mais était vide. Cette session implémente l'agent autonome avant la Phase 3 UX.
+`eva/agents/agent_base.py` existait dans l'arborescence cible mais était vide. Implémenté avant Phase 3.
 
 **Architecture — Boucle ReAct** :
 
@@ -514,41 +418,118 @@ run(goal)
         max_steps atteint → AgentResult(success=False)
 ```
 
-**Composants** :
-
-- `AgentStep` (dataclass) : step_num, action, tool_name, tool_args, observation, content, raw_response
-- `AgentResult` (dataclass) : success, answer, steps, goal
-- `AgentBase(EvaComponent)` : agent principal, lifecycle + events
-
-**Format JSON LLM** :
-
-```json
-{"action":"tool_call","tool_name":"calc","arguments":{"expression":"2+2"}}
-{"action":"final_answer","content":"Le résultat est 4."}
-```
-
 **Events** : `agent_started`, `agent_run_start`, `agent_step_start`, `agent_step_complete`, `agent_run_complete`, `agent_max_steps_reached`, `agent_run_error`
 
-**Tests** : 43 tests en 0.27s — suite complète : 356 passed (~26s)
+**Tests** : 43 tests
 
-**Incidents** : aucun bloquant — correction triviale `subscribe` → `on` (EventBus API)
+**Incidents** : correction triviale `subscribe` → `on` (EventBus API)
 
 ---
 
-## 📝 Notes Personnelles
+## 📊 Métriques Phase 2
 
-- Projet structuré dès P0
-- Tests = colonne vertébrale
-- Collaboration Claude + ChatGPT efficace
-- Progression constante
-- Pas de dette critique
+**Tests** :
+
+- Phase 1.1 : 216 tests
+- R-020-023 : +49 tests
+- R-024 (RAG) : +55 tests
+- R-021b (AgentBase) : +43 tests
+- Total : 356 passed (+ 2 skipped, 27 xfailed)
+- Durée : ~26s
+
+**Couverture** : ~95% global
+
+---
+
+## 📌 Phase 2 — Conclusion
+
+✅ Tool calling fonctionnel (Ollama + OpenAI)
+✅ Agent autonome (boucle ReAct)
+✅ Mémoire vectorielle (RAG complet)
+✅ Provider-agnostic architecture
+✅ 356 tests, ~95% coverage
+
+---
+
+## 📍 Phase 3 — Interface Utilisateur (EN COURS 🔄)
+
+### 🔹 R-033 — Command Registry + CLI avancé
+
+**Statut** : ✅ VALIDÉ
+
+**Contexte** :
+Avant de construire l'UI Textual (R-030), définir le contrat Command Registry partagé entre CLI, Terminal UI et API REST — sinon chaque couche aurait son propre dispatch, créant de la dette.
+
+**Décision clé** :
+R-033 ne devient pas une mini-UI. Périmètre strict :
+- Historique haut/bas (readline)
+- Autocomplétion `/commandes` (Tab)
+- Command Registry unifié
+- Zéro I/O dans les handlers
+
+**Contrat Command Registry** :
+
+```
+Command(name, help, handler(args: str, ctx: CommandContext) → CommandResult)
+
+CommandResult(success, output, event, event_payload, should_quit)
+    └─→ Handlers ne font jamais print/input — l'UI affiche output
+
+CommandContext(engine, config, event_bus, registry)
+    └─→ Injection explicite — handlers stateless
+```
+
+**8 commandes par défaut** :
+
+```
+/help  (h, ?)    Aide dynamique générée depuis le registry
+/status (stat)   Statut moteur + composants
+/start           Démarre EVAEngine
+/stop            Arrête EVAEngine
+/new             Nouvelle conversation
+/config (cfg)    Aperçu ou /config get KEY
+/clear (cls)     Efface l'écran (ANSI)
+/quit (exit, q)  should_quit=True + event cli_quit
+```
+
+**REPL refactorisé** (`eva/repl.py`) :
+- Couche I/O mince : `input() → registry.execute() → print(output)`
+- Readline : historique + Tab autocomplete
+- Fallback gracieux si readline absent (Windows sans pyreadline3)
+
+**Bénéfice architectural** :
+R-030 (Textual), R-031 (FastAPI) utiliseront exactement le même `CommandRegistry` — zéro duplication de logique.
+
+**Tests** : 89 tests (89/89)
+**Suite complète** : 445 passed (~27s), 0 régression
+
+---
+
+## 📐 Décisions Phase 3
+
+**Ordre d'implémentation** :
+1. R-033 — Command Registry (contrat first) ✅
+2. R-030 — Terminal UI Textual (construit sur R-033)
+3. R-031 — API REST FastAPI (construit sur R-033)
+4. R-032 — Interface web légère (construit sur R-031)
+
+**Principe UI retenu** :
+Un seul point de sortie utilisateur. L'UI affiche, les handlers retournent. Pas de print dans la logique métier.
+
+---
+
+## 📝 Notes
+
+- Projet structuré dès P0 — la rigueur paie au fil des phases
+- Tests = colonne vertébrale (tests cassés = signal d'architecture incorrecte)
+- Progression constante, zéro dette P0/P1
 
 ## 📦 Annexes — Chiffres Clés
 
-- Lignes roadmap : ~700
-- Modules : 22+
-- Tests : 356
-- Temps dev : massif 😄
+- Modules : 25+
+- Tests : 445
+- Coverage : ~95%
+- Durée suite : ~27s
 - Niveau : PRO
 
-✅ Fin JOURNAL
+✅ Fin JOURNAL (mis à jour Phase 3 — R-033)

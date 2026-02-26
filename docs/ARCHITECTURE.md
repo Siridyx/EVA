@@ -1,10 +1,10 @@
-## EVA — Architecture
+# EVA — Architecture
 
 Documentation de l'architecture globale du projet EVA.
 
-- Version : 0.1.0-p2
-- Dernière mise à jour : 2026-02-25
-- Phase : P2 (RAG - 100%)
+- Version : 0.2.0-p2
+- Dernière mise à jour : 2026-02-26
+- Phase : P3 (CLI avancé R-033 ✅)
 
 ---
 
@@ -12,440 +12,345 @@ Documentation de l'architecture globale du projet EVA.
 
 EVA est construit autour de 3 principes fondamentaux :
 
-Modularité
+**Modularité**
+- Composants découplés, testables, remplaçables
+- Chaque module hérite de `EvaComponent`
 
-- composants découplés
-- testables
-- remplaçables
+**Évolutivité**
+- P0 = fondations (Config, EventBus, Engine)
+- P1 = conversation (LLM, Prompts, Memory, Plugins)
+- P2 = intelligence (Tool Calling, Agent ReAct, RAG)
+- P3 = interface (CLI avancé, Terminal UI, API REST)
+- P4 = qualité & production (CI/CD, Audit, Perf)
 
-Évolutivité
-
-- P1 = conversation de base
-- P2 = agents / tools / RAG
-- P3 = UI avancée
-- P4 = qualité & production
-
-Observabilité
-
-- EventBus (pub/sub)
-- LoggingManager (fichiers data/logs/)
-- status() partout (introspection)
+**Observabilité**
+- `EventBus` (pub/sub) : communication inter-composants
+- `LoggingManager` : fichiers dans `data/logs/`
+- `status()` sur chaque composant (introspection)
 
 ---
 
-## 🏗️ Architecture Globale (Phase 1)
+## 🏗️ Architecture Globale
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        User Interface                       │
-│                     (scripts/eva_cli.py)                    │
-│                    REPL + Commands (/start)                 │
-│                    - affichage user-facing                  │
+│                     Interface Utilisateur                   │
+│                   eva/cli.py → eva/repl.py                  │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              CommandRegistry (R-033)                  │  │
+│  │  Command(name, handler(args, ctx) → CommandResult)    │  │
+│  │  Partagé : CLI · Terminal UI (R-030) · API (R-031)   │  │
+│  └───────────────────────────────────────────────────────┘  │
 └──────────────────────────┬──────────────────────────────────┘
-                           │ user input
+                           │ input utilisateur
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                       EVAEngine                             │
+│                        EVAEngine                            │
 │                  (eva/core/eva_engine.py)                   │
 │              - lifecycle start/stop                         │
-│              - process(message) -> ConversationEngine       │
+│              - process(message) → ConversationEngine        │
 │              - status() introspection                       │
-│              - décisions user-facing (via UI)               │
 └──────┬──────────────────┬────────────────────┬──────────────┘
-       │                  │                    │ response ↑
-       │                  │                    └──────────┘
-       ▼                  ▼
-┌─────────────┐    ┌─────────────┐             ┌──────────────┐
-│ConfigManager│    │  EventBus   │             │ EvaComponent │
-│             │    │ (pub/sub)   │             │    (base)    │
-│• get()      │    │• on()       │             │              │
-│• get_path() │    │• emit()     │             │• start()     │
-│• get_secret │    │• off()      │             │• stop()      │
-└─────┬───────┘    └──────┬──────┘             └──────┬───────┘
-      │                   │                           │
-      │                   │      (cross-cutting:      │
-      │                   │      all components)      │
-      │                   │                           │
-      ▼                   ▼                           ▼
+       │                  │                    │
+       ▼                  ▼                    ▼
+┌─────────────┐    ┌─────────────┐    ┌──────────────────────┐
+│ConfigManager│    │  EventBus   │    │    EvaComponent       │
+│             │    │ (pub/sub)   │    │ (base universelle)    │
+│• get()      │    │• on()       │    │• start() / stop()     │
+│• get_path() │    │• emit()     │    │• emit() / get_config()│
+│• get_secret │    │• off()      │    │• lifecycle idempotent │
+└─────────────┘    └─────────────┘    └──────────────────────┘
+                                               │
+                           ┌───────────────────┘
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                        Core Services                        │
-│  ┌─────────────────────┐          ┌──────────────────────┐  │
-│  │    LoggingManager   │          │    VersionManager    │  │
-│  │ - data/logs/        │          │- data/.version       │  │
-│  │ - event log_written │          │- events migrate/check│  │
-│  └─────────────────────┘          └──────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      ConversationEngine                     │
-│                     (eva/conversation/)                     │
+│                    ConversationEngine                       │
+│               Memory → Prompt → LLM → Memory               │
 │                                                             │
-│   - pipeline : Memory -> Prompt -> LLM -> Memory            │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │MemoryManager │  │PromptManager │  │    LLMClient      │  │
+│  │ JSON + window│  │templates .txt│  │ Ollama · OpenAI   │  │
+│  └──────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                             │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐     │
-│  │MemoryManager │   │ PromptManager│   │  LLMClient   │     │
-│  │- JSON        │   │ - templates  │   │ - provider   │     │
-│  │- context win │   │ - render vars│   │ - complete() │     │
-│  └──────────────┘   └──────────────┘   └──────────────┘     │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │            Tool Calling Integration (R-020)          │   │
+│  │  User → LLM → detect → execute → LLM → response     │   │
+│  │  ToolRegistry · ToolExecutor · @tool decorator       │   │
+│  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+┌─────────────────────┐    ┌────────────────────────────────┐
+│   Plugin System     │    │       AgentBase (R-021b)       │
+│   (eva/plugins/)    │    │       (eva/agents/)            │
+│                     │    │  Boucle ReAct autonome         │
+│• PluginBase         │    │  Reason → Act → Observe        │
+│• PluginRegistry     │    │  AgentResult / AgentStep       │
+│• PluginLoader       │    │  max_steps configurable        │
+└─────────────────────┘    └────────────────────────────────┘
+                           │
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                         Plugin System                       │
-│                        (eva/plugins/)                       │
+│                  VectorMemory / RAG (R-024)                 │
+│                      (eva/rag/)                             │
 │                                                             │
-│   ┌──────────────┐ ┌───────────────┐ ┌──────────────────┐   │
-│   │  PluginBase  │ │Plugin Registry│ │   PluginLoader   │   │
-│   │contrat plugin│ │  Registry     │ │Scan + Import safe│   │
-│   └──────────────┘ └───────────────┘ └──────────────────┘   │
+│  TextChunker → EmbeddingsProvider → CosineSimilarity        │
+│  VectorStorage (atomique) → VectorMemory (orchestrateur)    │
 └─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
+                           │
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      Persistence                            │
+│                       Persistence                           │
 │                                                             │
 │  data/                          plugins/                    │
 │  ├── logs/                      ├── example_plugin.py       │
-│  ├── memory/                    ├── weather_plugin.py       │
-│  ├── cache/                     └── ...                     │
-│  ├── prompts/                                               │
-│  ├── dumps/                                                 │
-│  └── .version                                               │
+│  ├── memory/                    └── ...                     │
+│  ├── cache/                                                 │
+│  ├── prompts/                   eva/ui/  (R-033)            │
+│  ├── dumps/                     ├── command_registry.py     │
+│  └── .version                   └── commands.py            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **Légende** :
-
 - `→` : Flux de données principal
-- `↑` : Retour de réponse
-- EventBus : Cross-cutting (tous les composants)
-- Core Services : LoggingManager + VersionManager
+- `EventBus` : Cross-cutting (tous les composants émettent/écoutent)
+- `EvaComponent` : Base universelle (lifecycle + injection)
 
 ---
 
-## 🔧 Composants Core
+## 🔧 Composants Core (Phase 0)
 
-# ConfigManager
+### ConfigManager
+- Charge `config.yaml` (racine projet)
+- `get(key)` avec notation pointée (ex: `llm.models.dev`)
+- `get_path(name)` vers `data/`
+- `get_secret(key)` depuis `.env` / variables d'environnement
+- Création auto des dossiers `data/` manquants
 
-ConfigManager
+### EventBus
+- Communication découplée inter-composants (pub/sub)
+- Synchrone en P0/P1 (interface stable pour migration async)
+- Isolation des handlers (un handler en erreur ne bloque pas les autres)
+- Payload `Dict[str, Any]` strict
+- API : `on()`, `emit()`, `off()`
 
-- responsabilité
-  - charger config.yaml (racine projet)
-  - fournir get() avec notation pointée
-  - fournir get_path() vers data/
-  - fournir get_secret() depuis .env / env vars
-- points clés
-  - création auto des dossiers data/ manquants
-  - aucun secret exposé dans repr
+### EvaComponent
+- Classe de base universelle pour tous les composants EVA
+- `start()` / `stop()` / `shutdown()` idempotents
+- Erreurs observables via events
+- Helpers : `emit()`, `get_config()`, `get_path()`, `get_secret()`
 
-# EventBus
+### LoggingManager
+- Logs techniques dans `data/logs/`
+- Rotation automatique (taille + backup count)
+- Événement `log_written` pour observabilité
+- Règle : l'UI affiche, le Engine décide, le Logging trace
 
-- responsabilité
-  - communication découplée inter-composants
-- design
-  - synchrone en P0/P1 (interface stable pour async plus tard)
-  - isolation des handlers (un handler en erreur ne casse pas les autres)
-  - payload dict strict
-
-# EvaComponent
-
-- responsabilité
-  - base universelle pour standardiser tous les composants EVA
-- garanties
-  - start/stop idempotents
-  - erreurs observables via events
-  - helpers : emit(), get_config(), get_path(), get_secret()
-
-# LoggingManager
-
-- responsabilité
-  - logs techniques dans data/logs/
-  - séparation des canaux (ex: user/system/error)
-  - rotation journalière
-  - event log_written pour observabilité
-- règle importante (alignée “contrat”)
-  - pas de “messages utilisateur” ici
-  - UI affiche, Engine décide, Logging trace
-
-# VersionManager
-
-- responsabilité
-  - semver + compat
-  - fichier data/.version
-  - migrations framework (prêt)
-
-## Composants P1
-
-# MemoryManager
-
-- backend
-  - JSON dans data/memory/
-  - session unique (du jour)
-  - écriture atomique (temp -> replace)
-- comportement
-  - add_message(role, content)
-  - get_context(window=N)
-  - max_messages (trim)
-  - events : memory_session_created, memory_message_added, ...
-
-# PromptManager
-
-- backend
-  - templates dans data/prompts/
-  - placeholders style {{var}}
-- comportement
-  - auto-create prompts par défaut si manquants
-  - render(vars) avec validation placeholders
-- point important (post-incident)
-  - prompts en UTF-8 propre
-  - tests isolés via EVA_DATA_DIR/tmp_path
-
-# LLMClient
-
-- responsabilité
-  - abstraction provider
-  - complete(messages, profile, timeout, retries)
-- note provider
-  - l’architecture supporte plusieurs providers
-  - le choix “Ollama/Groq/OpenAI” est une décision de config/implémentation, pas un blocage d’archi
-
-# ConversationEngine
-
-- pipeline
-  - persist user -> context -> system prompt -> call llm -> persist assistant
-- API
-  - respond(user_input: str, overrides: Optional[dict] = None) -> str
-- events (observabilité)
-  - conversation_request_received
-  - conversation_context_built
-  - llm_request_started / llm_request_succeeded / llm_request_error
-  - conversation_reply_ready
-
-# Plugin system (P1)
-
-- objectifs
-  - scan dossier plugins/
-  - import safe (try/except)
-  - registry central
-- limites P1
-  - plugins simples (pas d’agent planning, pas de tool calling avancé)
-  - agent/tool orchestration = P2
-
-  ***
-
-## Composants P2 — Tool Calling
-
-# Tool System (R-020-023)
-
-- **Architecture** :
-  - Provider-agnostic (format interne EVA neutre)
-  - Ollama : Prompt engineering + JSON custom
-  - OpenAI : Function calling natif
-
-- **Composants** :
-  - **ToolDefinition** (dataclass frozen)
-    - name, description, function, parameters, returns
-    - validate_arguments() avec type checking
-    - to_openai_function() pour conversion OpenAI schema
-  - **ToolRegistry** (EvaComponent)
-    - register(), unregister(), get(), list_tools()
-    - get_all_definitions() pour ConversationEngine
-    - Events : tool_registered, tool_unregistered, registry_cleared
-  - **ToolExecutor** (EvaComponent)
-    - execute(tool_name, arguments) avec validation
-    - Timeout configurable (30s default)
-    - Error handling safe (tool crash ≠ EVA crash)
-    - Events : tool_called, tool_result, tool_error
-  - **@tool decorator**
-    - Création simple tools
-    - Auto-génération ToolDefinition
-    - Helpers : is_tool(), get_tool_definition()
-
-- **ConversationEngine Integration** :
-  - \_detect_tool_call() : Parse JSON `{"action":"tool_call",...}`
-  - Workflow 2 LLM calls : detect → execute → reformule
-  - Memory persistence (tool calls + results)
-  - Event tool_call_detected
-  - tools_openai injection si provider supporte
-
-- **Demo Tools** :
-  - get_time(city) : Heure dans ville
-  - calc(expression) : Calculatrice safe
-  - list_plugins() : Liste plugins
-  - get_status() : Status EVA
+### VersionManager
+- Fichier `data/.version` (semver)
+- Framework de migration prêt
+- Détection de version mismatch
 
 ---
 
-## Persistance
+## 🔧 Composants Phase 1 (Conversation)
 
-- tout runtime dans Eva/data/
-  - logs/
-  - memory/
-  - cache/
-  - prompts/
-  - dumps/
-  - .version
-- plugins tiers dans Eva/plugins/
-  - pas de persistance directe dans plugins/
-  - si un plugin persiste, il passe par config.get_path()
+### MemoryManager
+- Backend : JSON dans `data/memory/` (session unique par jour)
+- `add_message(role, content)` + `get_context(window=N)`
+- Écriture atomique (temp → rename)
+- Events : `memory_session_created`, `memory_message_added`, ...
 
-## Tests
+### PromptManager
+- Templates dans `data/prompts/` (fichiers `.txt`, placeholders `{{var}}`)
+- Auto-création des prompts par défaut si manquants
+- `render(vars, strict=True)` avec validation des placeholders
 
-- stratégie
-  - unit : composants isolés
-  - smoke : intégration stack
-- post-incident (tests lents)
-  - EVA_DATA_DIR forcé vers tmp_path en tests
-  - prompts/memory/logs isolés par test run
-  - objectif : tests rapides + déterministes
-- métriques (indicatif)
-  - tests totaux : ~200+ (selon état exact du repo)
-  - durée : ~10–12s (après isolation I/O)
+### LLMClient
+- Interface abstraite multi-provider : `complete(messages, profile, tools)`
+- Providers : Ollama (local) · OpenAI · Anthropic · Groq
+- Retry logic + backoff exponentiel + timeout configurable
 
-## Limitations connues
+### ConversationEngine
+- Pipeline : `persist user → context → prompt → LLM → persist response`
+- `respond(user_input) → str`
+- Intégration Tool Calling (workflow 2 appels LLM si tool détecté)
+- Events : `conversation_request_received`, `llm_request_started`, `conversation_reply_ready`, ...
 
-- P2 (actuel)
-  - session unique (multi-conv = future)
-  - pas de streaming
-  - ✅ tool calling opérationnel
-  - ✅ RAG vectoriel opérationnel (R-024)
-  - pas de planning multi-step
+### Plugin System
+- `PluginBase` : contrat plugin (hérite `EvaComponent`)
+- `PluginRegistry` : registry central + isolation erreurs
+- `PluginLoader` : auto-discovery (`*_plugin.py` / `*/plugin.py`), import safe
 
 ---
 
-## Composants R-024 — RAG (Retrieval-Augmented Generation)
+## 🔧 Composants Phase 2 (Tool Calling, Agent, RAG)
 
-# VectorMemory
+### Tool System (R-020 à R-023)
 
-- responsabilité
-  - orchestrateur du pipeline RAG complet
-  - hérite `EvaComponent` (lifecycle + events)
-  - pipeline `add_document()` : chunk → embed → store
-  - pipeline `search()` : embed query → similarity → top-k
-  - persistence transparente (load au start, save après add)
-- events observabilité
-  - `vector_document_added` : document ajouté (doc_id, num_chunks, total)
-  - `vector_search_performed` : recherche effectuée (query, top_k, num_results)
-  - `vector_index_loaded` : index rechargé depuis disque
-  - `vector_index_cleared` : index vidé
+Architecture provider-agnostic :
+- **Ollama** : prompt engineering + détection JSON custom
+- **OpenAI** : function calling natif (paramètre `tools`)
 
-# TextChunker
+Composants :
+- `ToolDefinition` (dataclass) : name, description, function, parameters, returns, `to_openai_function()`
+- `ToolRegistry` (EvaComponent) : register, unregister, get, list_tools
+- `ToolExecutor` (EvaComponent) : execute safe (timeout 30s, crash isolé)
+- `@tool` decorator : création de tool en une ligne
 
-- responsabilité
-  - découpage texte en chunks avec overlap (sliding window par caractères)
-- paramètres
-  - `chunk_size` : taille chunk (défaut 500 chars)
-  - `chunk_overlap` : overlap entre chunks (défaut 50 chars)
-- garanties
-  - texte vide → `[]`
-  - texte ≤ chunk_size → `[texte]`
+ConversationEngine integration :
+- `_detect_tool_call()` : parse JSON `{"action":"tool_call",...}`
+- Workflow : User → LLM → detect → execute → LLM → reformulation
+- Persistence mémoire des tool calls + results (`role="tool"`)
 
-# EmbeddingsProvider
+### AgentBase — Boucle ReAct (R-021b)
 
-- interface abstraite
-  - `embed(text)` → `np.ndarray` (normalisé L2)
-  - `get_embedding_dim()` → `int`
-- implémentations
-  - `FakeEmbeddingProvider` : hash SHA256 → seed RNG → vecteur uniforme normalisé
-    - 100% offline, déterministe (même texte = même vecteur)
-    - Utilisé dans tous les tests unitaires
-  - `LocalEmbeddingProvider` : sentence-transformers, lazy load
-    - Modèle par défaut : `all-MiniLM-L6-v2` (~80 MB)
-    - Cache interne pour éviter re-embed
+```
+run(goal)
+    │
+    ├─→ Prompt système (tools_list injecté)
+    │
+    └─→ LOOP (step 1..max_steps) :
+            LLM.complete(messages)
+            _parse_response(raw)
+            │
+            ├─→ "tool_call"    → _execute_tool() → observation → continuer
+            ├─→ "final_answer" → AgentResult(success=True)
+            └─→ texte brut     → final_answer implicite
+        max_steps atteint → AgentResult(success=False)
+```
 
-# CosineSimilarity
+- `AgentStep` : step_num, action, tool_name, observation, content
+- `AgentResult` : success, answer, steps, goal
+- Config : `agent.max_steps` (défaut 10)
+- Events : `agent_run_start`, `agent_step_complete`, `agent_run_complete`, ...
 
-- responsabilité
-  - calcul similarité cosinus entre query et corpus
-  - assume vecteurs déjà normalisés L2 (cosine = dot product)
-- complexité : O(n × dim) — acceptable MVP (FAISS prévu P3)
-- validation : shapes + dimensions à chaque appel
-
-# VectorStorage
-
-- responsabilité
-  - persistence atomique index vectoriel sur disque
-  - format : `index.json` (documents + métadonnées) + `index.npz` (vecteurs numpy)
-- écriture atomique : write `.tmp` → `rename` (cohérence garantie)
-- validation compatibilité : détecte mismatch `model_name` ou `embedding_dim`
-
----
-
-## 🌊 Flux RAG (R-024)
+### VectorMemory / RAG (R-024)
 
 ```
 add_document(text, metadata)
-    │
-    ├─→ TextChunker.chunk(text)
-    │       → ["chunk1", "chunk2", ...]
-    │
-    ├─→ EmbeddingsProvider.embed(chunk_i)
-    │       → np.ndarray [embedding_dim]  (normalisé L2)
-    │
-    ├─→ np.vstack([existing_vectors, new_vectors])
-    │
-    ├─→ VectorStorage.save(vectors, documents, model, dim)
-    │       → index.json + index.npz (atomique)
-    │
-    └─→ emit("vector_document_added", {doc_id, num_chunks, total})
-
+    ├─→ TextChunker.chunk(text)         → List[str]
+    ├─→ EmbeddingsProvider.embed(chunk) → np.ndarray (normalisé L2)
+    ├─→ VectorStorage.save()            → index.json + index.npz (atomique)
+    └─→ emit("vector_document_added")
 
 search(query, top_k)
-    │
-    ├─→ EmbeddingsProvider.embed(query)
-    │       → np.ndarray [embedding_dim]
-    │
-    ├─→ CosineSimilarity.compute_similarity(query_vec, all_vectors)
-    │       → scores [num_docs]  (dot product)
-    │
-    ├─→ np.argsort(scores)[::-1][:top_k]
-    │       → indices triés décroissant
-    │
-    ├─→ format résultats
-    │       → [{"doc_id", "chunk_id", "text", "metadata", "score"}, ...]
-    │
-    └─→ emit("vector_search_performed", {query, top_k, num_results})
+    ├─→ EmbeddingsProvider.embed(query) → np.ndarray
+    ├─→ CosineSimilarity.compute()      → scores [num_docs]
+    ├─→ np.argsort(scores)[::-1][:k]   → top-k indices
+    └─→ emit("vector_search_performed")
+```
+
+- `TextChunker` : sliding window par caractères (chunk_size + overlap)
+- `EmbeddingsProvider` : interface abstraite — `FakeEmbeddingProvider` (offline, déterministe) + `LocalEmbeddingProvider` (sentence-transformers)
+- `CosineSimilarity` : dot product sur vecteurs L2-normalisés (O(n×dim))
+- `VectorStorage` : persistence atomique `.tmp → rename`
+
+---
+
+## 🔧 Composants Phase 3 (Interface)
+
+### Command Registry (R-033)
+
+Contrat unique partagé par CLI, Terminal UI (R-030) et API REST (R-031) :
+
+```
+Command(name, help, handler(args: str, ctx: CommandContext) → CommandResult)
+
+CommandResult(success, output, event, event_payload, should_quit)
+    └─→ Zéro I/O dans les handlers — l'UI affiche output
+
+CommandContext(engine, config, event_bus, registry)
+    └─→ Injection explicite, pas de singleton global
+```
+
+`CommandRegistry` :
+- `register(command)` — avec détection des doublons (nom + alias)
+- `get(name)` — résolution par nom ou alias, insensible à la casse
+- `execute(raw_input, ctx)` — parse le slash, dispatch, isole les exceptions
+- `get_completions(prefix)` — pour Tab autocomplete readline
+- `list_commands()` — sans doublons alias (utilisé par `/help` dynamique)
+
+8 commandes par défaut : `/help`, `/status`, `/start`, `/stop`, `/new`, `/config`, `/clear`, `/quit`
+
+REPL (eva/repl.py) :
+- Couche I/O mince au-dessus du CommandRegistry
+- Readline : historique haut/bas + Tab autocomplete (fallback gracieux)
+
+---
+
+## 📂 Structure des Fichiers
+
+```
+EVA/
+├── eva/                        # Package principal
+│   ├── agents/                 # Agents autonomes (ReAct)
+│   │   └── agent_base.py
+│   ├── conversation/           # Pipeline conversationnel
+│   │   └── conversation_engine.py
+│   ├── core/                   # Fondations
+│   │   ├── config_manager.py
+│   │   ├── event_bus.py
+│   │   ├── eva_component.py
+│   │   ├── eva_engine.py
+│   │   ├── logging_manager.py
+│   │   └── version_manager.py
+│   ├── llm/                    # Clients LLM + providers
+│   │   ├── llm_client.py
+│   │   └── providers/          # ollama, openai, anthropic, groq
+│   ├── memory/                 # Mémoire conversationnelle
+│   │   └── memory_manager.py
+│   ├── plugins/                # Système de plugins
+│   ├── prompt/                 # Templates de prompts
+│   ├── rag/                    # Mémoire vectorielle (RAG)
+│   │   ├── chunker.py
+│   │   ├── embeddings_provider.py
+│   │   ├── similarity_engine.py
+│   │   ├── storage.py
+│   │   └── vector_memory.py
+│   ├── tools/                  # Tool calling system
+│   │   ├── tool_definition.py
+│   │   ├── tool_registry.py
+│   │   ├── tool_executor.py
+│   │   ├── decorator.py
+│   │   └── demo_tools.py
+│   ├── ui/                     # Contrat Command Registry (R-033)
+│   │   ├── command_registry.py # Command, CommandResult, CommandContext
+│   │   └── commands.py         # Handlers par défaut (zero I/O)
+│   ├── cli.py                  # Point d'entrée `eva` (argparse)
+│   └── repl.py                 # REPL : readline + dispatch registry
+├── plugins/                    # Plugins tiers / custom
+├── data/                       # Runtime (logs, memory, cache, prompts)
+├── tests/                      # Suite de tests (unit + smoke)
+└── docs/                       # Documentation
 ```
 
 ---
 
-## 🌊 Flux Tool Calling (Phase 2)
+## 🧪 Tests
 
-```
-User Input (CLI)
-    │
-    ▼
-ConversationEngine.respond(message)
-    │
-    ├─→ [1-4] (identique Phase 1)
-    │
-    ├─→ [5] Construire tools_openai si ToolExecutor présent
-    │
-    ├─→ [6] response = LLMClient.complete(messages, profile, tools=tools_openai)
-    │   emit: llm_request_started
-    │
-    ├─→ [7] tool_call = _detect_tool_call(response)
-    │
-    ├─→ [8] SI tool_call détecté :
-    │   │
-    │   ├─→ [8a] emit: tool_call_detected
-    │   │
-    │   ├─→ [8b] result = ToolExecutor.execute(tool_name, arguments)
-    │   │   emit: tool_called, tool_result | tool_error
-    │   │
-    │   ├─→ [8c] MemoryManager.add_message("assistant", tool_call_json)
-    │   │
-    │   ├─→ [8d] MemoryManager.add_message("tool", tool_result)
-    │   │
-    │   ├─→ [8e] messages.append(tool_call + tool_result)
-    │   │
-    │   └─→ [8f] response = LLMClient.complete(messages, profile, tools=tools_openai)
-    │       (reformulation langage naturel)
-    │
-    ├─→ [9] MemoryManager.add_message("assistant", response)
-    │
-    └─→ return response
-```
+Stratégie :
+- `tests/unit/` : composants isolés (mocks, no I/O réel)
+- `tests/smoke/` : intégration stack minimale
+
+Isolation :
+- `EVA_DATA_DIR` forcé vers `tmp_path` (conftest autouse)
+- `EVA_TEST_MODE=1` : timeouts courts, retries=0
+- Aucun accès réseau réel en tests unitaires
+
+Métriques actuelles :
+- **445 tests** passent en **~27s**
+- Coverage : ~95%
 
 ---
+
+## ⚠️ Limitations Connues
+
+- Session unique (multi-conversation = Phase 4+)
+- Pas de streaming LLM (response complète uniquement)
+- EventBus synchrone (async prévu Phase 4 — DEBT-001)
+- Pipeline séquentiel uniquement (parallèle = DEBT-002)
+- CosineSimilarity O(n×dim) — FAISS prévu si index > 100k chunks

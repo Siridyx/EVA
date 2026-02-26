@@ -90,10 +90,10 @@ eva
 /start    # Démarrer la session
 /status   # Statut du système
 /new      # Nouvelle conversation
-/prompt   # Changer le prompt système
-/config   # Voir la configuration
+/config   # Voir la configuration (ou /config get KEY)
+/clear    # Effacer l'écran
 /help     # Aide
-/quit     # Quitter
+/quit     # Quitter (/exit, /q)
 ```
 
 ---
@@ -111,7 +111,8 @@ EVA/
 │   ├── plugins/            # Système de plugins
 │   ├── prompt/             # Templates de prompts
 │   ├── rag/                # Mémoire vectorielle (RAG)
-│   └── tools/              # Tool calling system
+│   ├── tools/              # Tool calling system
+│   └── ui/                 # Command Registry (CLI · Textual · API REST)
 ├── plugins/                # Plugins tiers / custom
 ├── data/                   # Runtime (logs, memory, cache)
 ├── tests/                  # Suite de tests
