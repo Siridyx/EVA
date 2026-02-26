@@ -9,8 +9,8 @@ EVA est un assistant IA local, extensible et testable, conçu comme un véritabl
 | Indicateur       | Valeur                        |
 | ---------------- | ----------------------------- |
 | **Version**      | 0.2.0-p2                      |
-| **Phase**        | 2 complète ✅ → Phase 3 en vue |
-| **Tests**        | 356 (≈95% coverage, ~26s)     |
+| **Phase**        | 3 en cours 🔄 (R-033 ✅)       |
+| **Tests**        | 445 (≈95% coverage, ~27s)     |
 | **Provider**     | Ollama local (gratuit)        |
 | **Python**       | 3.9 strict                    |
 
@@ -137,8 +137,8 @@ pytest tests/unit/test_agent_base.py -v
 
 | Métrique       | Valeur  |
 | -------------- | ------- |
-| Tests totaux   | 356     |
-| Durée          | ~26s    |
+| Tests totaux   | 445     |
+| Durée          | ~27s    |
 | Coverage       | ~95%    |
 
 ---
@@ -151,7 +151,7 @@ pytest tests/unit/test_agent_base.py -v
 | Phase 1   | ✅ Complète | Conversation, LLM, Prompts, Plugins  |
 | Phase 1.1 | ✅ Complète | Provider Ollama local                |
 | Phase 2   | ✅ Complète | Tool Calling, Agent ReAct, RAG       |
-| Phase 3   | ⏳ À venir  | Terminal UI, API REST, Web           |
+| Phase 3   | 🔄 En cours | CLI avancé ✅, Terminal UI, API REST  |
 | Phase 4   | ⏳ À venir  | CI/CD, Audit, Performance            |
 
 ---

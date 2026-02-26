@@ -26,11 +26,11 @@ Créer un assistant IA personnel :
 | Phase 0   | ✅ DONE | 100% (8/8)  | 96    | 2.5s   |
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
-| Phase 2   | ✅ DONE | 100% (5/5)  | 356   | ~26s   |
-| Phase 3   | ⏳ TODO | 0% (0/4)    | -     | -      |
+| Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
+| Phase 3   | 🔄 WIP  | 25% (1/4)   | 445   | ~27s   |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
-**Total items complétés** : 24/34 (71%)
+**Total items complétés** : 25/34 (74%)
 
 ---
 
@@ -292,17 +292,26 @@ Objectif : EVA appelle des fonctions, raisonne de façon autonome et retrouve de
 
 ---
 
-## PHASE 3 — INTERFACE UTILISATEUR (P3)
+## PHASE 3 — INTERFACE UTILISATEUR (P3) 🔄 (25% en cours)
 
 Objectif : UX agréable et accessible.
 
-- [ ] [P3][M][todo] R-030 — Terminal UI (rich/textual) (deps: R-006, R-014)
-- [ ] [P3][M][todo] R-031 — API REST locale (FastAPI) (deps: R-014, R-020)
+- [x] [P3][S][done] R-033 — CLI avancé (historique, autocomplete, Command Registry) (deps: R-006) ✅ VALIDÉ
+  - `Command(name, help, handler(args, ctx) → CommandResult)` — contrat central
+  - `CommandRegistry` : register, get (alias + insensible à la casse), execute, completions, list_commands
+  - `CommandResult(success, output, event, event_payload, should_quit)` — zéro I/O dans handlers
+  - `CommandContext(engine, config, event_bus, registry)` — contexte d'exécution
+  - 8 commandes par défaut : help, status, start, stop, new, config, clear, quit
+  - Readline : historique haut/bas + Tab autocomplete (fallback gracieux Windows)
+  - REPL refactorisé : couche I/O mince, dispatch via registry
+  - Contrat partagé CLI / Textual (R-030) / API REST (R-031)
+  - 89 tests unitaires
+- [ ] [P3][M][todo] R-030 — Terminal UI (rich/textual) (deps: R-033)
+- [ ] [P3][M][todo] R-031 — API REST locale (FastAPI) (deps: R-033, R-020)
 - [ ] [P3][S][todo] R-032 — Interface web légère (deps: R-031)
-- [ ] [P3][S][todo] R-033 — CLI avancé (historique, autocomplete) (deps: R-006)
 
-**Statut** : 0/4 items (0%)  
-**Tests** : -  
+**Statut** : 1/4 items (25%) 🔄
+**Tests** : 445 passed (~27s)
 **Dépendances** : Phase 1 + Phase 2
 
 ---

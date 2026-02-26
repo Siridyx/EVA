@@ -10,6 +10,21 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
+- **Command Registry + CLI avancé (R-033)** : Phase 3 démarrée — contrat commandes unifié
+  - `Command(name, help, handler(args, ctx) → CommandResult)` — contrat partagé CLI / Textual / API REST
+  - `CommandResult(success, output, event, event_payload, should_quit)` — zéro I/O dans les handlers
+  - `CommandContext(engine, config, event_bus, registry)` — contexte injectable
+  - `CommandRegistry` : register, get (alias + insensible à la casse), execute, completions triées, list_commands
+  - `DuplicateCommandError` / `UnknownCommandError`
+  - 8 commandes par défaut : `/help` (h,?), `/status` (stat), `/start`, `/stop`, `/new`, `/config` (cfg), `/clear` (cls), `/quit` (exit,q)
+  - Aide dynamique depuis le registry (`/help` auto-généré à partir des commandes enregistrées)
+  - `/config get KEY` : lecture d'une clé de config (ex: `/config get llm.timeout`)
+  - Readline : historique haut/bas + Tab autocomplete sur `/commandes`
+  - Fallback gracieux si readline absent (Windows sans pyreadline3)
+  - REPL refactorisé (`eva/repl.py`) : couche I/O mince, dispatch via registry
+  - Émission EventBus des events définis dans CommandResult (`engine_started`, `engine_stopped`, `cli_quit`)
+  - 89 tests unitaires
+
 - **AgentBase — Boucle ReAct (R-021)** : Agent autonome capable de raisonner et d'agir
   - Boucle `Reason → Act → Observe` (max_steps configurable, défaut 10)
   - `AgentBase(EvaComponent)` : hérite du lifecycle standard EVA
