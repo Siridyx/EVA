@@ -483,6 +483,56 @@ Tests après corrections  : 13/13 (100%)
 
 ---
 
+---
+
+## 📍 Phase 2 — AgentBase (2026-02-26 ✅)
+
+### 🔹 R-021 — AgentBase (boucle ReAct)
+
+**Statut** : ✅ VALIDÉ
+
+**Contexte** :
+Le fichier `eva/agents/agent_base.py` existait dans l'arborescence cible mais était vide. Cette session implémente l'agent autonome avant la Phase 3 UX.
+
+**Architecture — Boucle ReAct** :
+
+```
+run(goal)
+    │
+    ├─→ Prompt système (tools_list injecté)
+    ├─→ Messages : [system, user(goal)]
+    │
+    └─→ LOOP (step 1..max_steps) :
+            LLM.complete(messages)
+            _parse_response(raw)
+            │
+            ├─→ "tool_call"     → _execute_tool() → observation → messages += → continuer
+            ├─→ "final_answer"  → AgentResult(success=True, answer)
+            └─→ texte brut      → final_answer implicite
+        max_steps atteint → AgentResult(success=False)
+```
+
+**Composants** :
+
+- `AgentStep` (dataclass) : step_num, action, tool_name, tool_args, observation, content, raw_response
+- `AgentResult` (dataclass) : success, answer, steps, goal
+- `AgentBase(EvaComponent)` : agent principal, lifecycle + events
+
+**Format JSON LLM** :
+
+```json
+{"action":"tool_call","tool_name":"calc","arguments":{"expression":"2+2"}}
+{"action":"final_answer","content":"Le résultat est 4."}
+```
+
+**Events** : `agent_started`, `agent_run_start`, `agent_step_start`, `agent_step_complete`, `agent_run_complete`, `agent_max_steps_reached`, `agent_run_error`
+
+**Tests** : 43 tests en 0.27s — suite complète : 356 passed (~26s)
+
+**Incidents** : aucun bloquant — correction triviale `subscribe` → `on` (EventBus API)
+
+---
+
 ## 📝 Notes Personnelles
 
 - Projet structuré dès P0
@@ -493,9 +543,9 @@ Tests après corrections  : 13/13 (100%)
 
 ## 📦 Annexes — Chiffres Clés
 
-- Lignes roadmap : ~600
-- Modules : 20+
-- Tests : 214+
+- Lignes roadmap : ~700
+- Modules : 22+
+- Tests : 356
 - Temps dev : massif 😄
 - Niveau : PRO
 

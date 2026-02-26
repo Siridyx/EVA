@@ -10,6 +10,20 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
+- **AgentBase — Boucle ReAct (R-021)** : Agent autonome capable de raisonner et d'agir
+  - Boucle `Reason → Act → Observe` (max_steps configurable, défaut 10)
+  - `AgentBase(EvaComponent)` : hérite du lifecycle standard EVA
+  - `AgentResult` : résultat complet (success, answer, steps, goal)
+  - `AgentStep` : trace d'une étape (action, tool_name, observation, content)
+  - `run(goal)` : exécution autonome jusqu'à `final_answer` ou `max_steps`
+  - `_parse_response()` : JSON `tool_call` / `final_answer` / fallback texte brut
+  - `_execute_tool()` : délègue à `ToolExecutor`, retourne observation string
+  - `_build_tools_description()` : liste tools pour le prompt système
+  - Config-driven : `agent.max_steps` dans config.yaml
+  - Events observabilité : `agent_started`, `agent_run_start`, `agent_step_start`,
+    `agent_step_complete`, `agent_run_complete`, `agent_max_steps_reached`, `agent_run_error`
+  - 43 tests unitaires (lifecycle, run, tool_call, max_steps, parse, execute, events)
+
 - **Mémoire vectorielle RAG (R-024)** : Pipeline RAG complet (chunk → embed → store → search)
   - `TextChunker` : découpage texte par caractères avec overlap configurable
   - `EmbeddingsProvider` : interface abstraite multi-provider

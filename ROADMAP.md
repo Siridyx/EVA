@@ -2,9 +2,9 @@
 
 Feuille de route du projet EVA (Assistant IA Personnel).
 
-**Version** : 0.1.0-p2
-**Dernière mise à jour** : 2026-02-25
-**Phase actuelle** : Phase 2 (RAG) — 100%
+**Version** : 0.2.0-p2
+**Dernière mise à jour** : 2026-02-26
+**Phase actuelle** : Phase 2 (Tool Calling & RAG) — 100%
 
 ---
 
@@ -26,7 +26,7 @@ Créer un assistant IA personnel :
 | Phase 0   | ✅ DONE | 100% (8/8)  | 96    | 2.5s   |
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
-| Phase 2   | ✅ DONE | 100% (5/5)  | 315   | ~17s   |
+| Phase 2   | ✅ DONE | 100% (5/5)  | 356   | ~26s   |
 | Phase 3   | ⏳ TODO | 0% (0/4)    | -     | -      |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
@@ -142,7 +142,7 @@ Objectif : EVA devient réellement utile.
 
 ---
 
-## 🎊 PHASE 1 + 1.1 COMPLÈTES ! 🎊
+## 🎊 PHASE 1 + 1.1 ! 🎊 ✅ (100% complété)
 
 **Date de clôture** : 2026-02-21  
 **Tag conceptuel** : v0.1.0-p1-ollama
@@ -205,7 +205,7 @@ EVA> Merci !
 
 ---
 
-## PHASE 2 — AGENTS & ORCHESTRATION (P2) ⏳
+## PHASE 2 — AGENTS & ORCHESTRATION (P2) ⏳ ✅ (100% complété)
 
 Objectif : EVA devient intelligent et autonome.
 
@@ -238,12 +238,14 @@ Objectif : EVA appelle des fonctions et outils externes.
   - Exemples concrets (Tokyo, calc, list_plugins)
   - Injection dynamique tools list
   - Règles claires : JSON strict, une ligne, pas de texte autour
+
 - [x] [P2][S][done] R-022 — Test End-to-End Ollama (deps: R-020, R-021) ✅ VALIDÉ
   - Workflow complet validé avec Ollama réel
   - calc(42\*17) → "Le résultat du calcul est : 714."
   - get_time(Tokyo) → "Il est actuellement 09:06:24 à Tokyo."
   - Tests multi-tours conversation
   - Reformulation langage naturel après tool result
+
 - [x] [P2][M][done] R-023 — OpenAI Function Calling Adapter (deps: R-020) ✅ VALIDÉ
   - ToolDefinition.to_openai_function() conversion schema
   - OpenAIProvider native function calling support
@@ -251,6 +253,7 @@ Objectif : EVA appelle des fonctions et outils externes.
   - Provider-agnostic architecture (Ollama JSON + OpenAI native)
   - Backward compatible (OllamaProvider ignore tools parameter)
   - Conversion réponse OpenAI → format EVA interne
+
 - [x] [P2][XL][done] R-024 — Mémoire vectorielle (RAG) (deps: R-011) ✅ VALIDÉ
   - TextChunker : découpage par caractères avec overlap configurable
   - EmbeddingsProvider : interface abstraite + FakeEmbeddingProvider (offline, déterministe) + LocalEmbeddingProvider (sentence-transformers)
@@ -283,6 +286,17 @@ Objectif : EVA appelle des fonctions et outils externes.
 - Provider-agnostic architecture
 - Module RAG complet (TextChunker + Embeddings + Similarity + Storage + VectorMemory)
 - 102 nouveaux tests total (49 tools + 53 RAG actifs)
+
+**Capacités EVA Phase 2** :
+
+- ✅ Tool calling end-to-end (Ollama + OpenAI)
+- ✅ @tool decorator pour créer tools simplement
+- ✅ Provider-agnostic architecture
+- ✅ Memory persistence tool calls
+- ✅ Reformulation langage naturel
+- ✅ Mémoire vectorielle (chunking + embeddings + search)
+- ✅ RAG integration ConversationEngine
+- ✅ Tests offline déterministes (FakeProvider)
 
 ---
 
@@ -325,15 +339,15 @@ Objectif : projet publiable.
 
 ## 📊 Métriques Globales
 
-| Métrique           | Valeur      | Objectif          |
-| ------------------ | ----------- | ----------------- |
-| **Tests totaux**   | 216         | 150+ (P1 complet) |
-| **Durée tests**    | 10.35s      | <15s              |
-| **Coverage**       | ~95%        | > 90%             |
-| **Dettes P0**      | 0           | 0                 |
-| **Dettes P1**      | 0           | 0                 |
-| **Dettes P2**      | 7           | <10               |
-| **Phase actuelle** | P1.1 (100%) | P1.1 (100%)       |
+| Métrique           | Valeur    | Objectif          |
+| ------------------ | --------- | ----------------- |
+| **Tests totaux**   | 356       | 200+ (P2 complet) |
+| **Durée tests**    | ~26s      | <30s              |
+| **Coverage**       | ~95%      | > 90%             |
+| **Dettes P0**      | 0         | 0                 |
+| **Dettes P1**      | 0         | 0                 |
+| **Dettes P2**      | 8         | <10               |
+| **Phase actuelle** | P2 (100%) | P2 (100%)         |
 
 ---
 
@@ -391,7 +405,7 @@ Objectif : projet publiable.
 
 ---
 
-**Dernière modification** : 2026-02-21 (Phase 1.1 Ollama complete)
+**Dernière modification** : 2026-02-26 (AgentBase R-021 codé + 43 tests)
 
 ## 🏗️ Principes Fondamentaux
 
@@ -563,7 +577,7 @@ Eva/                                                                    ✅
 │   │
 │   ├── agents/                                                         ✅
 │   │   ├── __init__.py                                                 ✅
-│   │   └── agent_base.py # R-021 : Agent Base                         ⏳
+│   │   └── agent_base.py # R-021 : Agent Base (ReAct loop)             ✅
 │   │
 │   ├── conversation/                                                   ✅
 │   │   ├── __init__.py                                                 ✅
@@ -653,6 +667,7 @@ Eva/                                                                    ✅
     │   └── test_smoke.py # R-008                                       ✅
     └── unit/                                                           ✅
         ├── conftest.py # Fixtures RAG (FakeEmbeddingProvider, etc.)    ✅
+        ├── test_agent_base.py # R-021 AgentBase (ReAct loop)           ✅
         ├── test_chunker.py # R-024 RAG                                 ✅
         ├── test_config_manager.py # R-003a                             ✅
         ├── test_conftest.py # Validation fixtures conftest             ✅
