@@ -39,6 +39,7 @@ ENV/
 Thumbs.db
 
 # Eva data/ — protège tout sauf structure
+# Racine data/ (historique)
 data/logs/*
 data/memory/*
 data/cache/*
@@ -46,12 +47,26 @@ data/prompts/*
 data/dumps/*
 *.log
 
-# Garde la structure
+# Garde la structure data/ racine
 !data/logs/.gitkeep
 !data/memory/.gitkeep
 !data/cache/.gitkeep
 !data/prompts/.gitkeep
 !data/dumps/.gitkeep
+
+# eva/data/ — conversations, vecteurs, cache LLM (runtime, non versionné)
+eva/data/**
+!eva/data/**/.gitkeep
+
+# Claude Code — config locale (non projet)
+.claude/
+
+# Assets locaux non versionnés (images de test/perso)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
 
 # Secrets
 .env

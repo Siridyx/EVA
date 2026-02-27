@@ -708,6 +708,12 @@ http://127.0.0.1:8000/docs   → Swagger UI (FastAPI auto)
 
 **Suite complète** : 495 passed (~15s), 0 régression
 
+**Vérification post-commit (89cfbee)** :
+- Bug corrigé : `hideThinking(null)` affichait la chaîne `"null"` → suppression de l'élément DOM
+- Code mort supprimé : `if (thinkingEl === null) {}` (jamais exécuté)
+- 5/5 points de sécurité vérifiés : instance unique FastAPI, endpoints /chat//health//status exposés, host=127.0.0.1, setInterval sans fuite, textContent uniquement (pas d'innerHTML)
+- Tests web : 4/4 + API : 4/4 = 8/8 ✅
+
 ---
 
 ## 📊 Métriques Phase 3 (COMPLÈTE ✅)
