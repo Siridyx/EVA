@@ -4,7 +4,7 @@ Feuille de route du projet EVA (Assistant IA Personnel).
 
 **Version** : 0.2.0-p2
 **Dernière mise à jour** : 2026-02-27
-**Phase actuelle** : Phase 3 (Interface Utilisateur) — 50%
+**Phase actuelle** : Phase 3 (Interface Utilisateur) — 75%
 
 ---
 
@@ -27,10 +27,10 @@ Créer un assistant IA personnel :
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
-| Phase 3   | 🔄 WIP  | 50% (2/4)   | 487   | ~14s   |
+| Phase 3   | 🔄 WIP  | 75% (3/4)   | 524   | ~27s   |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
-**Total items complétés** : 26/34 (76%)
+**Total items complétés** : 27/34 (79%)
 
 ---
 
@@ -317,11 +317,21 @@ Objectif : UX agréable et accessible.
   - Lancement : `eva --tui`
   - Dépendance : `textual>=0.65.0`
   - 42 tests unitaires (rendu, TCSS, attributs, dispatch, smoke Textual)
-- [ ] [P3][M][todo] R-031 — API REST locale (FastAPI) (deps: R-033, R-020)
+- [x] [P3][M][done] R-031 — API REST locale (FastAPI) (deps: R-033) ✅ VALIDÉ
+  - FastAPI app avec lifespan (init EVA au startup, cleanup au shutdown)
+  - `_EvaState` dataclass : état partagé module-level (engine, config, event_bus, registry, ctx)
+  - `GET /health` : healthcheck 200 toujours (même mode dégradé)
+  - `GET /status` : `engine.status()` → StatusResponse (503 si engine None)
+  - `POST /chat` : `engine.process(message)` via `asyncio.to_thread` (503 si non démarré, 422 si vide)
+  - Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
+  - Docs auto : `/docs` (Swagger UI) + `/redoc`
+  - Lancement : `eva --api` (localhost:8000)
+  - `fastapi[standard]>=0.104.0` + `httpx>=0.25.0` ajoutés aux dépendances
+  - 37 tests (health, status, chat, schémas, config app, CLI flag, init)
 - [ ] [P3][S][todo] R-032 — Interface web légère (deps: R-031)
 
-**Statut** : 2/4 items (50%) 🔄
-**Tests** : 487 passed (~14s)
+**Statut** : 3/4 items (75%) 🔄
+**Tests** : 524 passed (~27s)
 **Dépendances** : Phase 1 + Phase 2
 
 ---
@@ -352,13 +362,13 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur    | Objectif          |
 | ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 487       | 200+ (P2 complet) |
-| **Durée tests**    | ~14s      | <30s              |
+| **Tests totaux**   | 524       | 200+ (P2 complet) |
+| **Durée tests**    | ~27s      | <30s              |
 | **Coverage**       | ~95%      | > 90%             |
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |
 | **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P3 (50%)  | P3 (100%)         |
+| **Phase actuelle** | P3 (75%)  | P3 (100%)         |
 
 ---
 

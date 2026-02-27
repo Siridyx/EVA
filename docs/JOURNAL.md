@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 3 — Interface Utilisateur (en cours)
-Statut global : Phase 2 ✅ — Phase 3 🔄 (R-030 validé)
+Statut global : Phase 2 ✅ — Phase 3 🔄 (R-031 validé)
 Dernière mise à jour : 2026-02-27
 
 ### 🎯 Objectif du Journal
@@ -602,4 +602,67 @@ Textual utilise `self._registry` en interne. Renommage en `self._cmd_registry` p
 - Durée suite : ~14s
 - Niveau : PRO
 
-✅ Fin JOURNAL (mis à jour Phase 3 — R-030)
+---
+
+### 🔹 R-031 — API REST FastAPI
+
+**Statut** : ✅ VALIDÉ
+
+**Contexte** :
+R-033 a défini le contrat. R-031 expose EVA via HTTP — 3 endpoints simples sur le même EVAEngine.
+
+**Architecture** :
+
+```
+FastAPI(lifespan)
+    │
+    ├─→ lifespan() : asyncio.to_thread(_init_eva) au startup
+    │                engine.stop() au shutdown
+    │
+    ├─→ GET /health  → HealthResponse(status="ok", version)       # toujours 200
+    ├─→ GET /status  → StatusResponse(**engine.status())           # 503 si engine None
+    └─→ POST /chat   → asyncio.to_thread(engine.process, message) # 503/422/500
+```
+
+**Décisions** :
+- `EvaState` module-level (pas de DI complexe pour 3 endpoints)
+- `asyncio.to_thread` : appel LLM synchrone depuis route async FastAPI
+- `fastapi[standard]` : inclut uvicorn + httpx (pas de dépendance explicite uvicorn)
+- Lifespan (pas `@app.on_event`) : pattern moderne FastAPI recommandé
+
+**Décision clé — import sys.modules dans les tests** :
+`import eva.api.app as api_module` résout `eva.api.app` comme l'objet FastAPI (à cause de l'export dans `__init__.py`). Correction : `api_module = sys.modules["eva.api.app"]` après import du module.
+
+**Tests** : 37 tests
+- 4 `TestHealthEndpoint`
+- 6 `TestStatusEndpoint`
+- 10 `TestChatEndpoint`
+- 5 `TestAPISchema`
+- 5 `TestAPIInit`
+- 4 `TestCLIApiFlag`
+- 3 `TestApiInit`
+
+**Suite complète** : 524 passed (~27s), 0 régression
+
+---
+
+## 📊 Métriques Phase 3 (partielle)
+
+**Tests** :
+- R-033 : +89 tests
+- R-030 : +42 tests
+- R-031 : +37 tests
+- Total : 524 passed
+- Durée : ~27s
+
+---
+
+## 📦 Annexes — Chiffres Clés
+
+- Modules : 35+
+- Tests : 524
+- Coverage : ~95%
+- Durée suite : ~27s
+- Niveau : PRO
+
+✅ Fin JOURNAL (mis à jour Phase 3 — R-031)

@@ -269,4 +269,4 @@ mais jamais régresser.
 
 Signature projet : Sébastien
 Statut : Actif
-Dernière validation : Phase 3 en cours (R-030 ✅ — 2026-02-27)
+Dernière validation : Phase 3 en cours (R-031 ✅ — 2026-02-27)

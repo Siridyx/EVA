@@ -10,6 +10,18 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
+- **API REST FastAPI (R-031)** : Interface HTTP pour EVA — `eva --api`
+  - `GET /health` : healthcheck 200 OK (toujours, même mode dégradé)
+  - `GET /status` : état moteur EVA (running, composants) — 503 si non initialisé
+  - `POST /chat` : `{"message": "..."}` → `{"response": "...", "ok": true}` via `asyncio.to_thread`
+  - Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
+  - `EvaState` dataclass : état partagé module-level (même pattern init que REPL/TUI)
+  - Lifespan FastAPI : init EVA au startup, arrêt propre au shutdown
+  - Docs auto Swagger UI : `http://localhost:8000/docs` + `/redoc`
+  - `fastapi[standard]>=0.104.0` + `httpx>=0.25.0` ajoutés aux dépendances
+  - `eva --api` flag dans cli.py (localhost only, pas d'auth Phase 3)
+  - 37 tests (TestClient Starlette, mock engine via sys.modules)
+
 - **Terminal UI Textual (R-030)** : Interface graphique en terminal — `eva --tui`
   - `EvaTuiApp(App)` : application Textual, layout split chat 70% / sidebar 30%
   - `ChatView(Vertical)` : messages scrollables, `add_message()`, `replace_thinking()` pour réponse LLM non-bloquante

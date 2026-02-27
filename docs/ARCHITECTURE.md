@@ -4,7 +4,7 @@ Documentation de l'architecture globale du projet EVA.
 
 - Version : 0.2.0-p2
 - Dernière mise à jour : 2026-02-27
-- Phase : P3 (R-033 ✅ — R-030 ✅)
+- Phase : P3 (R-033 ✅ — R-030 ✅ — R-031 ✅)
 
 ---
 
@@ -253,6 +253,27 @@ search(query, top_k)
 
 ## 🔧 Composants Phase 3 (Interface)
 
+### API REST / FastAPI (R-031)
+
+Interface HTTP pour EVA. Lancement : `eva --api` (http://localhost:8000).
+
+```
+FastAPI(lifespan)
+    │
+    ├─→ lifespan() : asyncio.to_thread(_init_eva) au startup
+    │                engine.stop() au shutdown
+    │
+    ├─→ GET /health  → HealthResponse                          # 200 toujours
+    ├─→ GET /status  → StatusResponse(**engine.status())       # 503 si engine None
+    └─→ POST /chat   → asyncio.to_thread(engine.process, msg) # 503/422/500
+```
+
+- `EvaState` dataclass module-level : engine, config, event_bus, registry, ctx
+- Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
+- Lifespan : init EVA au startup (asyncio.to_thread), cleanup au shutdown
+- Docs auto : `/docs` (Swagger UI) + `/redoc`
+- **Note** : `api_module = sys.modules["eva.api.app"]` dans tests (conflit `eva.api.app` avec objet FastAPI)
+
 ### Terminal UI / Textual (R-030)
 
 Interface graphique en terminal. Lancement : `eva --tui`.
@@ -342,13 +363,16 @@ EVA/
 │   │   ├── tool_executor.py
 │   │   ├── decorator.py
 │   │   └── demo_tools.py
+│   ├── api/                    # API REST FastAPI (R-031)
+│   │   ├── __init__.py
+│   │   └── app.py              # EvaState, lifespan, /health /status /chat
 │   ├── ui/                     # Contrat Command Registry (R-033) + TUI
 │   │   ├── command_registry.py # Command, CommandResult, CommandContext
 │   │   ├── commands.py         # Handlers par défaut (zero I/O)
 │   │   └── tui/                # Terminal UI Textual (R-030)
 │   │       ├── app.py          # EvaTuiApp, ChatView, StatusSidebar, EvaInput
 │   │       └── styles.tcss     # Thème sombre cyan/bleu
-│   ├── cli.py                  # Point d'entrée `eva` (argparse)
+│   ├── cli.py                  # Point d'entrée `eva` (argparse + --api --tui)
 │   └── repl.py                 # REPL : readline + dispatch registry
 ├── plugins/                    # Plugins tiers / custom
 ├── data/                       # Runtime (logs, memory, cache, prompts)
@@ -370,7 +394,7 @@ Isolation :
 - Aucun accès réseau réel en tests unitaires
 
 Métriques actuelles :
-- **487 tests** passent en **~14s**
+- **524 tests** passent en **~27s**
 - Coverage : ~95%
 
 ---

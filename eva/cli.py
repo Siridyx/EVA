@@ -4,6 +4,7 @@ CLI principal pour EVA
 Usage:
     eva                 # Lance REPL interactif
     eva --tui           # Lance le Terminal UI (Textual)
+    eva --api           # Lance l'API REST (FastAPI — localhost:8000)
     eva --version       # Affiche version
     eva --help          # Aide
 """
@@ -41,9 +42,18 @@ def main():
         help="Lance le Terminal UI (Textual)"
     )
 
+    parser.add_argument(
+        "--api",
+        action="store_true",
+        help="Lance l'API REST (FastAPI — http://localhost:8000)"
+    )
+
     args = parser.parse_args()
 
-    if args.tui:
+    if args.api:
+        from eva.api.app import main as api_main
+        return api_main()
+    elif args.tui:
         from eva.ui.tui.app import main as tui_main
         return tui_main()
     else:
