@@ -1,8 +1,16 @@
 """
 EVA API REST — Application FastAPI (R-031).
 
-Interface HTTP construite sur le contrat R-033.
-Endpoints : POST /chat, GET /status, GET /health
+Scope Phase 3 :
+    POST /chat   — envoyer un message, recevoir la réponse structurée
+    GET  /status — état du moteur (toujours 200)
+    GET  /health — healthcheck (toujours 200)
+
+Future phases :
+    - Auth JWT (Phase 4)
+    - Streaming SSE (Phase 4)
+    - Rate limiting (Phase 4)
+    - WebSocket (Phase 5)
 
 Lancement :
     eva --api                       # via CLI
@@ -15,17 +23,21 @@ Standards :
 - PEP8 strict
 - asyncio.to_thread() pour appels LLM synchrones
 - HTTPException pour les erreurs HTTP
+- /status toujours 200 (mode dégradé inclus)
+- host=127.0.0.1 strict (Phase 3 — pas d'exposition externe)
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
+import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from eva import __version__
 from eva.core.config_manager import ConfigManager
@@ -44,22 +56,41 @@ class ChatRequest(BaseModel):
     """Corps de la requête POST /chat."""
 
     message: str
+    conversation_id: Optional[str] = None  # fourni par le client ou généré
+
+    @field_validator("message")
+    @classmethod
+    def message_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Le message ne peut pas être vide.")
+        return v
+
+
+class ChatMetadata(BaseModel):
+    """Métadonnées de la réponse POST /chat."""
+
+    provider: str
+    latency_ms: int
 
 
 class ChatResponse(BaseModel):
     """Réponse de POST /chat."""
 
     response: str
-    ok: bool
+    conversation_id: str
+    metadata: ChatMetadata
 
 
 class StatusResponse(BaseModel):
-    """Réponse de GET /status — miroir de EVAEngine.status()."""
+    """
+    Réponse de GET /status.
 
-    running: bool
-    started: bool
-    pipeline_mode: str
-    pipeline_initialized: bool
+    Toujours HTTP 200 — même si le moteur n'est pas démarré.
+    `engine` vaut "RUNNING", "STOPPED" ou "UNAVAILABLE".
+    """
+
+    engine: str  # "RUNNING" | "STOPPED" | "UNAVAILABLE"
+    provider: Optional[str]
     components: Dict[str, bool]
 
 
@@ -190,7 +221,7 @@ app = FastAPI(
         "Assistant IA Personnel — API REST (R-031)\n\n"
         "Endpoints disponibles :\n"
         "- `GET /health` : healthcheck\n"
-        "- `GET /status` : état du moteur\n"
+        "- `GET /status` : état du moteur (toujours 200)\n"
         "- `POST /chat` : envoyer un message, recevoir la réponse"
     ),
     version=__version__,
@@ -216,42 +247,58 @@ async def health() -> HealthResponse:
 @app.get("/status", response_model=StatusResponse, tags=["System"])
 async def status() -> StatusResponse:
     """
-    Retourne l'état complet du moteur EVA.
+    Retourne l'état du moteur EVA.
 
-    - `running` : True si le moteur est démarré
-    - `components` : état de chaque composant (LLM, mémoire, conversation)
+    Toujours HTTP 200 — même si le moteur n'est pas démarré.
+    `engine` vaut "RUNNING", "STOPPED" ou "UNAVAILABLE".
     """
+    # /status always returns 200 in Phase 3 (no 503 — degraded mode supported)
     if _state.engine is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Moteur non initialisé. Vérifiez les logs de démarrage.",
+        return StatusResponse(
+            engine="UNAVAILABLE",
+            provider=None,
+            components={},
         )
-    return StatusResponse(**_state.engine.status())
+
+    engine_status = _state.engine.status()
+    is_running = engine_status.get("running", False)
+
+    return StatusResponse(
+        engine="RUNNING" if is_running else "STOPPED",
+        provider="ollama",
+        components=engine_status.get("components", {}),
+    )
 
 
 @app.post("/chat", response_model=ChatResponse, tags=["Chat"])
 async def chat(request: ChatRequest) -> ChatResponse:
     """
-    Envoie un message à EVA et retourne la réponse.
+    Envoie un message à EVA et retourne la réponse structurée.
 
     Le message est traité par le moteur EVA via Ollama.
     L'appel LLM est non-bloquant (asyncio.to_thread).
     """
-    if not request.message.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Le message ne peut pas être vide.",
-        )
-
     if _state.engine is None or not _state.engine.is_running:
         raise HTTPException(
             status_code=503,
             detail="Moteur EVA non démarré. Utilisez /start ou relancez l'API.",
         )
 
+    # Générer un conversation_id si non fourni par le client
+    conv_id = request.conversation_id or str(uuid.uuid4())
+
     try:
-        response = await asyncio.to_thread(_state.engine.process, request.message)
-        return ChatResponse(response=response, ok=True)
+        t0 = time.monotonic()
+        response_text = await asyncio.to_thread(
+            _state.engine.process, request.message
+        )
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+        return ChatResponse(
+            response=response_text,
+            conversation_id=conv_id,
+            metadata=ChatMetadata(provider="ollama", latency_ms=latency_ms),
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -269,7 +316,9 @@ def main(host: str = "127.0.0.1", port: int = 8000) -> int:
     Lance le serveur API EVA.
 
     Args:
-        host: Adresse d'écoute (défaut : 127.0.0.1 — localhost uniquement)
+        host: Adresse d'écoute.
+              Phase 3 security rule: API bound to 127.0.0.1 only (no external
+              exposure). Phase 4 ajoutera auth JWT avant d'ouvrir à 0.0.0.0.
         port: Port d'écoute (défaut : 8000)
 
     Returns:

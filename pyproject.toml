@@ -27,6 +27,8 @@ dependencies = [
     "numpy>=1.24.0,<2.0.0",
     "sentence-transformers>=2.2.0",
     "textual>=0.65.0",
+    # fastapi[standard] : inclut uvicorn + httpx + pydantic v2 — tout-en-un
+    # pour Phase 3 (localhost only). Phase 4 ajoutera auth JWT + rate limiting.
     "fastapi[standard]>=0.104.0",
 ]
 

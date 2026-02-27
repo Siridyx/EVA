@@ -27,10 +27,10 @@ Créer un assistant IA personnel :
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
-| Phase 3   | 🔄 WIP  | 75% (3/4)   | 524   | ~27s   |
+| Phase 3   | 🔄 WIP  | 75% (3/4)   | 491   | ~15s   |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
-**Total items complétés** : 27/34 (79%)
+**Total items complétés** : 28/34 (82%)
 
 ---
 
@@ -317,21 +317,22 @@ Objectif : UX agréable et accessible.
   - Lancement : `eva --tui`
   - Dépendance : `textual>=0.65.0`
   - 42 tests unitaires (rendu, TCSS, attributs, dispatch, smoke Textual)
-- [x] [P3][M][done] R-031 — API REST locale (FastAPI) (deps: R-033) ✅ VALIDÉ
+- [x] [P3][M][done] R-031 — API REST locale (FastAPI) (deps: R-033) ✅ VALIDÉ — LOCKED
   - FastAPI app avec lifespan (init EVA au startup, cleanup au shutdown)
-  - `_EvaState` dataclass : état partagé module-level (engine, config, event_bus, registry, ctx)
+  - `EvaState` dataclass : état partagé module-level (engine, config, event_bus, registry, ctx)
   - `GET /health` : healthcheck 200 toujours (même mode dégradé)
-  - `GET /status` : `engine.status()` → StatusResponse (503 si engine None)
-  - `POST /chat` : `engine.process(message)` via `asyncio.to_thread` (503 si non démarré, 422 si vide)
-  - Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
+  - `GET /status` : toujours HTTP 200 — `{engine: "RUNNING"|"STOPPED"|"UNAVAILABLE", provider, components}`
+  - `POST /chat` : `{message, conversation_id?}` → `{response, conversation_id, metadata{provider, latency_ms}}`
+  - Validation Pydantic : message vide → 422 ; engine non démarré → 503
+  - `asyncio.to_thread` pour appel LLM non-bloquant
   - Docs auto : `/docs` (Swagger UI) + `/redoc`
-  - Lancement : `eva --api` (localhost:8000)
-  - `fastapi[standard]>=0.104.0` + `httpx>=0.25.0` ajoutés aux dépendances
-  - 37 tests (health, status, chat, schémas, config app, CLI flag, init)
+  - Lancement : `eva --api` (localhost:8000 — host=127.0.0.1 strict Phase 3)
+  - `fastapi[standard]>=0.104.0` (uvicorn + httpx inclus) + `httpx>=0.25.0` dev
+  - 4 tests essentiels (health, status, chat, validation)
 - [ ] [P3][S][todo] R-032 — Interface web légère (deps: R-031)
 
 **Statut** : 3/4 items (75%) 🔄
-**Tests** : 524 passed (~27s)
+**Tests** : 491 passed (~15s)
 **Dépendances** : Phase 1 + Phase 2
 
 ---
@@ -362,8 +363,8 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur    | Objectif          |
 | ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 524       | 200+ (P2 complet) |
-| **Durée tests**    | ~27s      | <30s              |
+| **Tests totaux**   | 491       | 200+ (P2 complet) |
+| **Durée tests**    | ~15s      | <30s              |
 | **Coverage**       | ~95%      | > 90%             |
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |

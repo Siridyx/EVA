@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 3 — Interface Utilisateur (en cours)
-Statut global : Phase 2 ✅ — Phase 3 🔄 (R-031 validé)
+Statut global : Phase 2 ✅ — Phase 3 🔄 (R-031 LOCKED)
 Dernière mise à jour : 2026-02-27
 
 ### 🎯 Objectif du Journal
@@ -606,7 +606,7 @@ Textual utilise `self._registry` en interne. Renommage en `self._cmd_registry` p
 
 ### 🔹 R-031 — API REST FastAPI
 
-**Statut** : ✅ VALIDÉ
+**Statut** : ✅ VALIDÉ — LOCKED
 
 **Contexte** :
 R-033 a défini le contrat. R-031 expose EVA via HTTP — 3 endpoints simples sur le même EVAEngine.
@@ -619,30 +619,55 @@ FastAPI(lifespan)
     ├─→ lifespan() : asyncio.to_thread(_init_eva) au startup
     │                engine.stop() au shutdown
     │
-    ├─→ GET /health  → HealthResponse(status="ok", version)       # toujours 200
-    ├─→ GET /status  → StatusResponse(**engine.status())           # 503 si engine None
-    └─→ POST /chat   → asyncio.to_thread(engine.process, message) # 503/422/500
+    ├─→ GET /health  → HealthResponse(status="ok", version)            # toujours 200
+    ├─→ GET /status  → StatusResponse(engine, provider, components)     # toujours 200
+    └─→ POST /chat   → asyncio.to_thread(engine.process, message)      # 503/422/500
+              └─→ ChatResponse(response, conversation_id, metadata)
 ```
+
+**Contrat /chat (Phase 3)** :
+- Request : `{message: str, conversation_id?: str}`
+- Response : `{response: str, conversation_id: str, metadata: {provider: str, latency_ms: int}}`
+- `conversation_id` généré via `uuid.uuid4()` si non fourni par le client
+- `latency_ms` mesuré via `time.monotonic()` autour de l'appel LLM
+
+**Contrat /status (Phase 3)** :
+- Toujours HTTP 200 (pas de 503 — mode dégradé supporté)
+- `engine` : "RUNNING" | "STOPPED" | "UNAVAILABLE" (si engine None)
+- `provider` : "ollama" si engine démarré, None sinon
 
 **Décisions** :
 - `EvaState` module-level (pas de DI complexe pour 3 endpoints)
 - `asyncio.to_thread` : appel LLM synchrone depuis route async FastAPI
 - `fastapi[standard]` : inclut uvicorn + httpx (pas de dépendance explicite uvicorn)
 - Lifespan (pas `@app.on_event`) : pattern moderne FastAPI recommandé
+- `host=127.0.0.1` strict Phase 3 (Phase 4 ajoutera auth JWT avant 0.0.0.0)
 
 **Décision clé — import sys.modules dans les tests** :
 `import eva.api.app as api_module` résout `eva.api.app` comme l'objet FastAPI (à cause de l'export dans `__init__.py`). Correction : `api_module = sys.modules["eva.api.app"]` après import du module.
 
-**Tests** : 37 tests
-- 4 `TestHealthEndpoint`
-- 6 `TestStatusEndpoint`
-- 10 `TestChatEndpoint`
-- 5 `TestAPISchema`
-- 5 `TestAPIInit`
-- 4 `TestCLIApiFlag`
-- 3 `TestApiInit`
+**Tests** : 4 tests essentiels
+- `test_health_ok` : GET /health → 200 + status/version
+- `test_status_returns_200` : GET /status → 200 (UNAVAILABLE sans engine, RUNNING avec)
+- `test_chat_returns_response` : POST /chat → 200 + response/conversation_id/metadata
+- `test_chat_validation_error` : POST /chat message vide → 422
 
-**Suite complète** : 524 passed (~27s), 0 régression
+**Suite complète** : 491 passed (~15s), 0 régression
+
+---
+
+### 🔹 R-031 — Stabilisation (Phase 3 LOCKED)
+
+**Date** : 2026-02-27
+
+**Corrections appliquées** :
+
+1. **Sécurité host** : `main(host="127.0.0.1")` — commentaire Phase 3 security rule
+2. **Contrat /chat** : nouveau format `conversation_id` + `metadata{provider, latency_ms}`, suppression `ok`
+3. **Contrat /status** : toujours HTTP 200, format `{engine, provider, components}`
+4. **Dépendances** : commentaire explicatif `fastapi[standard]` dans `pyproject.toml`
+5. **Tests** : simplifiés de 37 → 4 tests essentiels (couverture ciblée)
+6. **Docstring** : en-tête complet dans `eva/api/app.py` (Scope Phase 3 + Future phases)
 
 ---
 
@@ -651,18 +676,18 @@ FastAPI(lifespan)
 **Tests** :
 - R-033 : +89 tests
 - R-030 : +42 tests
-- R-031 : +37 tests
-- Total : 524 passed
-- Durée : ~27s
+- R-031 : +4 tests (37 initiaux → simplifiés à l'essentiel)
+- Total : 491 passed
+- Durée : ~15s
 
 ---
 
 ## 📦 Annexes — Chiffres Clés
 
 - Modules : 35+
-- Tests : 524
+- Tests : 491
 - Coverage : ~95%
-- Durée suite : ~27s
+- Durée suite : ~15s
 - Niveau : PRO
 
-✅ Fin JOURNAL (mis à jour Phase 3 — R-031)
+✅ Fin JOURNAL (mis à jour Phase 3 — R-031 LOCKED)

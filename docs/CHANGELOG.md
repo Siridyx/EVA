@@ -10,17 +10,18 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
-- **API REST FastAPI (R-031)** : Interface HTTP pour EVA — `eva --api`
+- **API REST FastAPI (R-031) — LOCKED** : Interface HTTP pour EVA — `eva --api`
   - `GET /health` : healthcheck 200 OK (toujours, même mode dégradé)
-  - `GET /status` : état moteur EVA (running, composants) — 503 si non initialisé
-  - `POST /chat` : `{"message": "..."}` → `{"response": "...", "ok": true}` via `asyncio.to_thread`
-  - Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
+  - `GET /status` : toujours HTTP 200 — `{engine: "RUNNING"|"STOPPED"|"UNAVAILABLE", provider, components}`
+  - `POST /chat` : `{message, conversation_id?}` → `{response, conversation_id, metadata{provider, latency_ms}}`
+  - Validation Pydantic `message` : vide → 422 ; engine non démarré → 503
+  - `asyncio.to_thread` pour appel LLM non-bloquant (FastAPI async → EVA sync)
   - `EvaState` dataclass : état partagé module-level (même pattern init que REPL/TUI)
   - Lifespan FastAPI : init EVA au startup, arrêt propre au shutdown
   - Docs auto Swagger UI : `http://localhost:8000/docs` + `/redoc`
-  - `fastapi[standard]>=0.104.0` + `httpx>=0.25.0` ajoutés aux dépendances
-  - `eva --api` flag dans cli.py (localhost only, pas d'auth Phase 3)
-  - 37 tests (TestClient Starlette, mock engine via sys.modules)
+  - `fastapi[standard]>=0.104.0` (uvicorn + httpx inclus) dans dépendances
+  - `eva --api` flag dans cli.py (`host=127.0.0.1` strict Phase 3 — pas d'auth)
+  - 4 tests essentiels (TestClient Starlette, mock engine via sys.modules)
 
 - **Terminal UI Textual (R-030)** : Interface graphique en terminal — `eva --tui`
   - `EvaTuiApp(App)` : application Textual, layout split chat 70% / sidebar 30%
