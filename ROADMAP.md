@@ -27,10 +27,10 @@ Créer un assistant IA personnel :
 | Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
-| Phase 3   | 🔄 WIP  | 75% (3/4)   | 491   | ~15s   |
+| Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
 | Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
 
-**Total items complétés** : 28/34 (82%)
+**Total items complétés** : 29/34 (85%)
 
 ---
 
@@ -292,7 +292,7 @@ Objectif : EVA appelle des fonctions, raisonne de façon autonome et retrouve de
 
 ---
 
-## PHASE 3 — INTERFACE UTILISATEUR (P3) 🔄 (25% en cours)
+## PHASE 3 — INTERFACE UTILISATEUR (P3) ✅ (100% complété)
 
 Objectif : UX agréable et accessible.
 
@@ -329,10 +329,21 @@ Objectif : UX agréable et accessible.
   - Lancement : `eva --api` (localhost:8000 — host=127.0.0.1 strict Phase 3)
   - `fastapi[standard]>=0.104.0` (uvicorn + httpx inclus) + `httpx>=0.25.0` dev
   - 4 tests essentiels (health, status, chat, validation)
-- [ ] [P3][S][todo] R-032 — Interface web légère (deps: R-031)
+- [x] [P3][S][done] R-032 — Interface web légère (deps: R-031) ✅ VALIDÉ
+  - `eva/web/app.py` : module-plugin — enregistre `GET /` sur l'app FastAPI R-031
+  - `eva/api/app.py` non modifié (R-031 reste LOCKED)
+  - HTML/CSS/JS entièrement embarqués dans le module Python — zéro dépendance supplémentaire
+  - Thème dark cyan/bleu cohérent avec TUI (`#0a0a1a` / `#00d4ff`)
+  - Chat history scrollable + indicateur "EVA réfléchit…" pendant appel LLM
+  - Polling `GET /status` toutes les 5s → badge RUNNING/STOPPED/UNAVAILABLE
+  - `conversation_id` maintenu côté client (contrat R-031)
+  - Désactivation UI automatique si engine UNAVAILABLE
+  - Lancement : `eva --web` (http://localhost:8000)
+  - Docs API toujours disponibles : http://localhost:8000/docs
+  - 4 tests essentiels (index 200, chat input, CLI flag, référence /chat)
 
-**Statut** : 3/4 items (75%) 🔄
-**Tests** : 491 passed (~15s)
+**Statut** : 4/4 items (100%) ✅
+**Tests** : 495 passed (~15s)
 **Dépendances** : Phase 1 + Phase 2
 
 ---
@@ -363,13 +374,13 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur    | Objectif          |
 | ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 491       | 200+ (P2 complet) |
+| **Tests totaux**   | 495       | 200+ (P2 complet) |
 | **Durée tests**    | ~15s      | <30s              |
 | **Coverage**       | ~95%      | > 90%             |
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |
 | **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P3 (75%)  | P3 (100%)         |
+| **Phase actuelle** | P3 (100%) | P3 (100%)         |
 
 ---
 

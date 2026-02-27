@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 3 — Interface Utilisateur (en cours)
-Statut global : Phase 2 ✅ — Phase 3 🔄 (R-031 LOCKED)
+Statut global : Phase 2 ✅ — Phase 3 ✅ COMPLÈTE (R-033 R-030 R-031 R-032)
 Dernière mise à jour : 2026-02-27
 
 ### 🎯 Objectif du Journal
@@ -671,23 +671,65 @@ FastAPI(lifespan)
 
 ---
 
-## 📊 Métriques Phase 3 (partielle)
+---
+
+### 🔹 R-032 — Interface Web Légère
+
+**Statut** : ✅ VALIDÉ
+
+**Contexte** :
+R-031 (API REST) était LOCKED. R-032 ajoute une interface browser sans modifier l'API.
+
+**Architecture** :
+
+```
+eva --web
+    └─→ import eva.web.app  ← side-effect : enregistre GET / sur app FastAPI
+    └─→ uvicorn.run(app)    ← même app objet que R-031
+
+http://127.0.0.1:8000/       → HTML page (R-032)
+http://127.0.0.1:8000/chat   → POST JSON (R-031, inchangé)
+http://127.0.0.1:8000/status → GET JSON  (R-031, inchangé)
+http://127.0.0.1:8000/docs   → Swagger UI (FastAPI auto)
+```
+
+**Décisions** :
+- Module-plugin : `import eva.web.app` enregistre `GET /` sur l'app (pas de nouvelle app FastAPI)
+- HTML/CSS/JS inline dans une string Python — zéro dépendance ajoutée, zéro CDN
+- `_build_html()` + `_HTML` module-level : construit une seule fois au chargement
+- Polling `/status` toutes les 5s via `setInterval` (vanilla JS)
+- `conversation_id` maintenu côté client entre les échanges (contrat R-031 respecté)
+
+**Tests** : 4 essentiels
+- `test_web_index_ok` : GET / → 200 + text/html
+- `test_web_has_chat_input` : HTML contient `msg-input`
+- `test_cli_has_web_flag` : `--web` dans cli.py
+- `test_web_references_chat_api` : `/chat` dans le HTML
+
+**Suite complète** : 495 passed (~15s), 0 régression
+
+---
+
+## 📊 Métriques Phase 3 (COMPLÈTE ✅)
 
 **Tests** :
 - R-033 : +89 tests
 - R-030 : +42 tests
 - R-031 : +4 tests (37 initiaux → simplifiés à l'essentiel)
-- Total : 491 passed
+- R-032 : +4 tests
+- Total : 495 passed
 - Durée : ~15s
+
+**Phase 3 : 4/4 items (100%) ✅**
 
 ---
 
 ## 📦 Annexes — Chiffres Clés
 
-- Modules : 35+
-- Tests : 491
+- Modules : 37+
+- Tests : 495
 - Coverage : ~95%
 - Durée suite : ~15s
 - Niveau : PRO
 
-✅ Fin JOURNAL (mis à jour Phase 3 — R-031 LOCKED)
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — R-033 R-030 R-031 R-032)

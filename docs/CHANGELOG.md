@@ -10,6 +10,18 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ### Added
 
+- **Interface web légère (R-032)** : UI browser pour EVA — `eva --web`
+  - Module-plugin `eva/web/app.py` : enregistre `GET /` sur l'app FastAPI R-031 (sans la modifier)
+  - HTML/CSS/JS vanilla entièrement embarqués dans le module Python — zéro dépendance supplémentaire, zéro CDN
+  - Chat history scrollable avec indicateur "EVA réfléchit…" pendant appel LLM
+  - Polling `GET /status` toutes les 5s → badge RUNNING/STOPPED/UNAVAILABLE dans le header
+  - `conversation_id` maintenu côté client entre les échanges (contrat R-031)
+  - Désactivation automatique de la saisie si engine UNAVAILABLE
+  - Thème dark cyan/bleu cohérent avec le TUI (`#0a0a1a` / `#00d4ff`)
+  - Lancement : `eva --web` (http://localhost:8000) — API docs toujours sur /docs
+  - `eva --api` inchangé (R-031 LOCKED)
+  - 4 tests essentiels (index 200, chat input, CLI flag, référence /chat)
+
 - **API REST FastAPI (R-031) — LOCKED** : Interface HTTP pour EVA — `eva --api`
   - `GET /health` : healthcheck 200 OK (toujours, même mode dégradé)
   - `GET /status` : toujours HTTP 200 — `{engine: "RUNNING"|"STOPPED"|"UNAVAILABLE", provider, components}`
