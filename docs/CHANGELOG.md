@@ -8,6 +8,15 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Packaging hardening Phase 4(A)** :
+  - `requires-python = ">=3.9,<3.13"` — compat validée 3.9 (baseline) + 3.11 (LTS)
+  - Optional extras séparés : `[api]`, `[tui]`, `[rag]`, `[all]`, `[dev]` — core minimal sans deps lourdes
+  - Versioning PEP 440 strict : `0.3.0` (MINOR = Phase complète) — politique hotfix documentée
+  - Source de vérité version : `pyproject.toml` → `importlib.metadata` → `eva.__version__`
+  - `LICENSE` propriétaire ajouté — mention README + `license = {file = "LICENSE"}` dans pyproject.toml
+  - CI GitHub Actions : matrix Python 3.9 + 3.11, lint flake8 (E9/F63/F7/F82) + pytest full
+  - Smoke CI : `eva --version` + `import eva` avant la suite de tests
+
 - **Interface web légère (R-032)** : UI browser pour EVA — `eva --web`
   - Module-plugin `eva/web/app.py` : enregistre `GET /` sur l'app FastAPI R-031 (sans la modifier)
   - HTML/CSS/JS vanilla entièrement embarqués dans le module Python — zéro dépendance supplémentaire, zéro CDN

@@ -3,23 +3,30 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Stratégie de versioning (Phase 4) :
-#   Format  : MAJOR.MINOR.PATCH (PEP 440 strict)
-#   Convention : MINOR = numéro de Phase complète
-#     0.1.0  = Phase 1 complète
-#     0.2.0  = Phase 2 complète
-#     0.3.0  = Phase 3 complète  ← version actuelle
-#     0.4.0  = Phase 4 complète
-#     0.X.0.devN = travail en cours sur Phase X
-#   Source unique : pyproject.toml → eva/__init__.py lit via importlib.metadata
-#   Future (Phase 5) : setuptools_scm (dériver depuis les tags git)
-#   Règle de bump : modifier uniquement [project].version ici
+# ─── Stratégie de versioning (Phase 4) ──────────────────────────────────────
+# Format  : MAJOR.MINOR.PATCH (PEP 440 strict)
+# Convention :
+#   MINOR = Phase complète     → 0.3.0 = P3, 0.4.0 = P4, ...
+#   PATCH = correctif (hotfix) → 0.3.1, 0.3.2 = fixes P3
+#   devN  = en cours           → 0.4.0.dev0, 0.4.0.dev1, ...
+# Exemples :
+#   0.3.0     = Phase 3 complète  ← version actuelle
+#   0.3.1     = hotfix Phase 3
+#   0.4.0.dev0 = début Phase 4
+#   0.4.0     = Phase 4 complète
+# Source unique : pyproject.toml → importlib.metadata → eva.__version__
+# Future (Phase 5) : setuptools_scm (dériver depuis les tags git)
+# Règle de bump : modifier UNIQUEMENT [project].version ici
+# ────────────────────────────────────────────────────────────────────────────
 name = "eva-assistant"
 version = "0.3.0"
 description = "Assistant IA personnel — propre, modulaire, maintenable"
 readme = "README.md"
-requires-python = ">=3.9,<3.10"
-license = {text = "Proprietary"}
+license = {file = "LICENSE"}
+# Compatibilité : Python 3.9 (développé/testé) → 3.12 (compatible)
+# CI teste : 3.9 (baseline) + 3.11 (LTS récent)
+# 3.13+ non testée — exclue par précaution jusqu'à validation
+requires-python = ">=3.9,<3.13"
 authors = [
     {name = "Siridyx", email = "Siridyx@gmail.com"}
 ]
@@ -28,27 +35,59 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# ─── Dépendances core (minimales — REPL + config) ───────────────────────────
+# Install minimal : pip install eva-assistant
+# Uniquement le nécessaire pour `eva` (CLI + REPL conversationnel)
 dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",
-    "numpy>=1.24.0,<2.0.0",
-    "sentence-transformers>=2.2.0",
-    "textual>=0.65.0",
-    # fastapi[standard] : inclut uvicorn + httpx + pydantic v2 — tout-en-un
-    # pour Phase 3 (localhost only). Phase 4 ajoutera auth JWT + rate limiting.
+]
+
+# ─── Extras : dépendances lourdes ou optionnelles ───────────────────────────
+# Usage :
+#   pip install -e ".[api]"           → API REST FastAPI
+#   pip install -e ".[tui]"           → Terminal UI Textual
+#   pip install -e ".[rag]"           → Mémoire vectorielle + embeddings
+#   pip install -e ".[all]"           → tout
+#   pip install -e ".[dev,api,tui,rag]"  → développement complet
+[project.optional-dependencies]
+
+# API REST (R-031) — fastapi[standard] inclut uvicorn + httpx + pydantic v2
+api = [
     "fastapi[standard]>=0.104.0",
 ]
 
-[project.optional-dependencies]
+# Terminal UI (R-030) — Textual TUI framework
+tui = [
+    "textual>=0.65.0",
+]
+
+# RAG — embeddings + vectorisation (lourd : PyTorch + transformers)
+rag = [
+    "numpy>=1.24.0,<2.0.0",
+    "sentence-transformers>=2.2.0",
+]
+
+# Tout (convenience)
+all = [
+    "eva-assistant[api,tui,rag]",
+]
+
+# Développement — tests + lint + formatage
+# Ne pas inclure [api/tui/rag] ici : installer explicitement si besoin
+# Pour CI complète : pip install -e ".[dev,api,tui,rag]"
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.23.0",
-    "httpx>=0.25.0",
+    "httpx>=0.25.0",          # TestClient API (test_api.py, test_web.py)
     "black>=23.0",
     "flake8>=6.0",
     "mypy>=1.0",
@@ -63,10 +102,13 @@ include = ["eva*"]
 exclude = ["tests*", "data*", "plugins*"]
 
 [tool.setuptools.package-data]
-# Inclure les fichiers de données du package (config YAML + styles TUI)
-eva = ["*.yaml", "**/*.tcss"]
+# Fichiers de données inclus dans le package installé
+eva = [
+    "*.yaml",          # configs YAML
+    "**/*.tcss",       # styles TUI Textual (R-030)
+]
 # eva/data/** est exclu : répertoire runtime (conversations, cache LLM)
-# → voir .gitignore : eva/data/**
+# → non versionné (.gitignore), non packagé
 
 [tool.black]
 line-length = 88

@@ -12,7 +12,8 @@ EVA est un assistant IA local, extensible et testable, conçu comme un véritabl
 | **Phase**        | 3 ✅ COMPLÈTE — Phase 4 en cours |
 | **Tests**        | 495 (≈95% coverage, ~15s)     |
 | **Provider**     | Ollama local (gratuit)        |
-| **Python**       | 3.9 strict                    |
+| **Python**       | 3.9 – 3.12 (CI : 3.9 + 3.11) |
+| **Licence**      | Propriétaire — All rights reserved |
 
 ---
 
@@ -79,9 +80,28 @@ git clone <repo> && cd EVA
 python -m venv .venv
 .venv\Scripts\activate  # Windows
 # source .venv/bin/activate  # Linux/Mac
+```
 
-# Installer en mode développement
+**Install selon le besoin** (les extras sont optionnels) :
+
+```bash
+# Core seul — REPL conversationnel uniquement (minimal)
+pip install -e .
+
+# Développement complet — core + tests + lint
 pip install -e ".[dev]"
+
+# API REST FastAPI
+pip install -e ".[api]"
+
+# Terminal UI Textual
+pip install -e ".[tui]"
+
+# Mémoire vectorielle (RAG — lourd : PyTorch + transformers)
+pip install -e ".[rag]"
+
+# Tout + développement (CI complète)
+pip install -e ".[dev,api,tui,rag]"
 ```
 
 **Prérequis** : [Ollama](https://ollama.com) installé et démarré avec `llama3.2:latest`
@@ -104,6 +124,9 @@ eva --tui
 
 # API REST (FastAPI — http://localhost:8000)
 eva --api
+
+# Interface web browser (FastAPI + UI vanilla — http://localhost:8000)
+eva --web
 
 # Commandes disponibles dans le REPL
 /start    # Démarrer la session
@@ -133,7 +156,8 @@ EVA/
 │   ├── tools/              # Tool calling system
 │   ├── ui/                 # Command Registry + TUI
 │   │   └── tui/            # Terminal UI Textual (R-030)
-│   └── api/                # API REST FastAPI (R-031)
+│   ├── api/                # API REST FastAPI (R-031)
+│   └── web/                # Interface web légère (R-032)
 ├── plugins/                # Plugins tiers / custom
 ├── data/                   # Runtime (logs, memory, cache)
 ├── tests/                  # Suite de tests
@@ -159,8 +183,8 @@ pytest tests/unit/test_agent_base.py -v
 
 | Métrique       | Valeur  |
 | -------------- | ------- |
-| Tests totaux   | 524     |
-| Durée          | ~27s    |
+| Tests totaux   | 495     |
+| Durée          | ~15s    |
 | Coverage       | ~95%    |
 
 ---
@@ -173,8 +197,8 @@ pytest tests/unit/test_agent_base.py -v
 | Phase 1   | ✅ Complète | Conversation, LLM, Prompts, Plugins  |
 | Phase 1.1 | ✅ Complète | Provider Ollama local                |
 | Phase 2   | ✅ Complète | Tool Calling, Agent ReAct, RAG       |
-| Phase 3   | 🔄 En cours | CLI avancé ✅, Terminal UI ✅, API REST ✅ |
-| Phase 4   | ⏳ À venir  | CI/CD, Audit, Performance            |
+| Phase 3   | ✅ Complète | CLI avancé, TUI, API REST, Interface web |
+| Phase 4   | 🔄 En cours | Packaging, CI/CD, Audit, Performance |
 
 ---
 
@@ -198,3 +222,12 @@ pytest tests/unit/test_agent_base.py -v
 - **Config** : YAML + python-dotenv
 - **Tests** : pytest + coverage
 - **Packaging** : pyproject.toml (PEP 517/518)
+- **CI** : GitHub Actions (lint flake8 + pytest, Python 3.9 + 3.11)
+
+---
+
+## 📄 Licence
+
+Copyright (c) 2024-2026 Siridyx. **All rights reserved.**
+
+Ce logiciel est propriétaire. Toute reproduction, distribution ou usage commercial sans autorisation écrite préalable est interdite. Voir le fichier [LICENSE](LICENSE) pour les détails complets.

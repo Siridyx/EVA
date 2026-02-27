@@ -757,8 +757,8 @@ http://127.0.0.1:8000/docs   → Swagger UI (FastAPI auto)
 
 4. **CI/CD GitHub Actions** (`.github/workflows/ci.yml`) :
    - Job `lint` : flake8 `--select=E9,F63,F7,F82` (erreurs critiques seulement)
-   - Job `test` : `pip install -e ".[dev]"` + smoke `eva --version` + `pytest`
-   - Python 3.9 uniquement (conforme `requires-python = ">=3.9,<3.10"`)
+   - Job `test` : `pip install -e ".[dev,api,tui,rag]"` + smokes + pytest
+   - Matrix : Python 3.9 (baseline) + 3.11 (LTS récent)
    - Note sécurité : `host=127.0.0.1` commenté, TestClient sans bind réseau
 
 5. **Validation locale** :
@@ -767,6 +767,31 @@ http://127.0.0.1:8000/docs   → Swagger UI (FastAPI auto)
    - `python -c "import eva; print(eva.__version__)"` → `0.3.0` ✅
    - `pytest --tb=short -q` → `495 passed, 0 régression` ✅
    - `flake8 eva/ --select=E9,F63,F7,F82` → aucune erreur critique ✅
+
+### 🔹 Phase 4(A) — Hardening packaging (2026-02-28)
+
+Suite au hardening appliqué après validation initiale :
+
+1. **Compat Python élargie** : `requires-python = ">=3.9,<3.13"` (3.10/3.11/3.12 incluses)
+   - CI matrix étendue : Python 3.9 (baseline) + 3.11 (LTS récent)
+   - CI install : `pip install -e ".[dev,api,tui,rag]"` — tous les extras pour tester la suite complète
+
+2. **Optional deps restructurées** :
+   - `[api]` : `fastapi[standard]>=0.104.0` — plus hors des deps core
+   - `[tui]` : `textual>=0.65.0` — plus hors des deps core
+   - `[rag]` : `numpy + sentence-transformers` — lourd, optionnel
+   - `[all]` : raccourci pour api+tui+rag
+   - `[dev]` : inchangé (pytest, flake8, black, mypy, httpx)
+   - Core minimal : `pyyaml + python-dotenv + requests` uniquement
+
+3. **LICENSE propriétaire** : fichier `LICENSE` créé (Copyright Siridyx, All rights reserved)
+   - `license = {file = "LICENSE"}` dans `pyproject.toml`
+   - Mention README : section Licence + indicateur dans table statut
+
+4. **Politique hotfix documentée** dans `pyproject.toml` :
+   - `0.3.x` : correctifs Phase 3 (hotfix)
+   - `0.4.0.devN` : en cours Phase 4
+   - `0.4.0` : Phase 4 complète
 
 ---
 
@@ -779,4 +804,4 @@ http://127.0.0.1:8000/docs   → Swagger UI (FastAPI auto)
 - Version : 0.3.0 (PEP 440)
 - Niveau : PRO
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) démarrée)
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED)
