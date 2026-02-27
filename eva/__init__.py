@@ -2,9 +2,22 @@
 EVA - Assistant IA Personnel
 
 Un assistant conversationnel intelligent et extensible.
+
+Versioning : source unique = pyproject.toml [project].version
+  → importlib.metadata lit la version au runtime depuis le package installé
+  → Fallback "dev" si le package n'est pas installé (pip install -e . requis)
+  → Règle de bump : modifier uniquement pyproject.toml, jamais ce fichier
 """
 
-__version__ = "0.2.0-p2"
+try:
+    from importlib.metadata import version as _pkg_version, PackageNotFoundError
+
+    __version__: str = _pkg_version("eva-assistant")
+except PackageNotFoundError:
+    # Package non installé — lancer : pip install -e .
+    # Ce fallback ne doit jamais apparaître en production.
+    __version__ = "dev"
+
 __author__ = "Siridyx"
 __description__ = "Assistant IA personnel intelligent et extensible"
 

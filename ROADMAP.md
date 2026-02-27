@@ -2,9 +2,9 @@
 
 Feuille de route du projet EVA (Assistant IA Personnel).
 
-**Version** : 0.2.0-p2
-**Dernière mise à jour** : 2026-02-27
-**Phase actuelle** : Phase 3 (Interface Utilisateur) — 75%
+**Version** : 0.3.0
+**Dernière mise à jour** : 2026-02-28
+**Phase actuelle** : Phase 4 (Packaging + CI/CD) — en cours
 
 ---
 

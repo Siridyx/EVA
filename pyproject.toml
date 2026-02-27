@@ -3,8 +3,19 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
+# Stratégie de versioning (Phase 4) :
+#   Format  : MAJOR.MINOR.PATCH (PEP 440 strict)
+#   Convention : MINOR = numéro de Phase complète
+#     0.1.0  = Phase 1 complète
+#     0.2.0  = Phase 2 complète
+#     0.3.0  = Phase 3 complète  ← version actuelle
+#     0.4.0  = Phase 4 complète
+#     0.X.0.devN = travail en cours sur Phase X
+#   Source unique : pyproject.toml → eva/__init__.py lit via importlib.metadata
+#   Future (Phase 5) : setuptools_scm (dériver depuis les tags git)
+#   Règle de bump : modifier uniquement [project].version ici
 name = "eva-assistant"
-version = "0.2.0-p2"
+version = "0.3.0"
 description = "Assistant IA personnel — propre, modulaire, maintenable"
 readme = "README.md"
 requires-python = ">=3.9,<3.10"
@@ -14,7 +25,7 @@ authors = [
 ]
 keywords = ["ai", "assistant", "llm", "agent"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.9",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -52,7 +63,10 @@ include = ["eva*"]
 exclude = ["tests*", "data*", "plugins*"]
 
 [tool.setuptools.package-data]
-eva = ["*.yaml"]
+# Inclure les fichiers de données du package (config YAML + styles TUI)
+eva = ["*.yaml", "**/*.tcss"]
+# eva/data/** est exclu : répertoire runtime (conversations, cache LLM)
+# → voir .gitignore : eva/data/**
 
 [tool.black]
 line-length = 88

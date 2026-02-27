@@ -8,9 +8,9 @@ EVA est un assistant IA local, extensible et testable, conçu comme un véritabl
 
 | Indicateur       | Valeur                        |
 | ---------------- | ----------------------------- |
-| **Version**      | 0.2.0-p2                      |
-| **Phase**        | 3 en cours 🔄 (R-031 ✅)       |
-| **Tests**        | 524 (≈95% coverage, ~27s)     |
+| **Version**      | 0.3.0                         |
+| **Phase**        | 3 ✅ COMPLÈTE — Phase 4 en cours |
+| **Tests**        | 495 (≈95% coverage, ~15s)     |
 | **Provider**     | Ollama local (gratuit)        |
 | **Python**       | 3.9 strict                    |
 

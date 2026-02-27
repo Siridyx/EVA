@@ -8,8 +8,6 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
-### Added
-
 - **Interface web légère (R-032)** : UI browser pour EVA — `eva --web`
   - Module-plugin `eva/web/app.py` : enregistre `GET /` sur l'app FastAPI R-031 (sans la modifier)
   - HTML/CSS/JS vanilla entièrement embarqués dans le module Python — zéro dépendance supplémentaire, zéro CDN
@@ -269,12 +267,61 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ---
 
-**Convention versioning** : [MAJOR.MINOR.PATCH]-[PHASE]
+**Convention versioning** : MAJOR.MINOR.PATCH (PEP 440 strict — Phase 4)
 
-- 0.1.0-dev = Phase 0
-- 0.1.0-p1 = Phase 1 complète
-- 0.2.0-p2 = Phase 2 complète
-- 0.3.0-p3 = Phase 3 complète (à venir)
+- MINOR = numéro de Phase complète
+- 0.1.0 = Phase 1 complète
+- 0.2.0 = Phase 2 complète
+- 0.3.0 = Phase 3 complète  <- version actuelle
+- 0.4.0 = Phase 4 complète (en cours)
+- 0.X.0.devN = travail en cours sur Phase X
+- Source unique : pyproject.toml -> importlib.metadata -> eva.__version__
+
+## [0.3.0] - 2026-02-28
+
+### Summary
+
+**Phase 3 (R-033 a R-032) : Interfaces Utilisateur Completes**
+
+Quatre interfaces livrees : CLI avance, Terminal UI, API REST, Interface web legere.
+
+**Metriques** :
+- 495 tests en ~15s (+139 tests Phase 3)
+- Coverage ~95%
+- 4/4 items Phase 3 (100%)
+
+### Added
+
+- **Phase 4(A) — Packaging + CI/CD** :
+  - `pyproject.toml` : version PEP 440 (`0.3.0`), strategie versioning documentee
+  - `eva/__init__.py` : `importlib.metadata` — source unique (`pyproject.toml`)
+  - `package-data` : ajout `**/*.tcss` (styles TUI Textual)
+  - `.github/workflows/ci.yml` : lint (flake8 E9/F7/F82) + tests Python 3.9
+  - CI smokes : `eva --version` + `import eva` + `pytest`
+
+- **Interface web legere (R-032)** : UI browser pour EVA — `eva --web`
+  - HTML/CSS/JS vanilla inline — zero dependance, zero CDN, zero build
+  - Module-plugin `eva/web/app.py` : etend l'app FastAPI R-031 sans la modifier
+
+- **API REST FastAPI (R-031) — LOCKED** : `eva --api`
+  - Contrat `/chat` : request+conversation_id -> response+conversation_id+metadata
+  - `/status` toujours HTTP 200
+
+- **Terminal UI Textual (R-030)** : `eva --tui` — layout split, worker LLM async
+
+- **Command Registry + CLI avance (R-033)** : contrat partage CLI/TUI/API
+
+### Fixed
+
+- `hideThinking(null)` : affichait `"null"` en string — corrige: suppression DOM
+- Code mort `if (thinkingEl === null) {}` supprime (`eva/web/app.py`)
+
+### Chores
+
+- `.gitignore` : `eva/data/**`, `.claude/`, `*.png/jpg/gif/webp` exclus du tracking
+- Version `0.2.0-p2` -> `0.3.0` (PEP 440 compliance)
+
+---
 
 ## [0.2.0-p2] - 2026-02-24
 

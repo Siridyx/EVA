@@ -730,12 +730,53 @@ http://127.0.0.1:8000/docs   → Swagger UI (FastAPI auto)
 
 ---
 
+---
+
+## 🚀 Phase 4 — Packaging + CI/CD (en cours)
+
+### 🔹 Phase 4(A) — Packaging + CI/CD
+
+**Date** : 2026-02-28
+
+**Problème détecté** :
+`version = "0.2.0-p2"` dans `pyproject.toml` → PEP 440 non conforme → `pip install -e .` échoue.
+
+**Corrections appliquées** :
+
+1. **Version PEP 440** : `0.2.0-p2` → `0.3.0`
+   - Convention : MINOR = numéro de Phase complète (0.1.0 → 0.2.0 → 0.3.0 → 0.4.0)
+   - Documenté dans `pyproject.toml` (commentaire + stratégie future setuptools_scm)
+
+2. **Source unique de version** : `eva/__init__.py` lit via `importlib.metadata`
+   - Plus de duplication (pyproject.toml = seule source de vérité)
+   - Fallback `"dev"` si package non installé (signal clair)
+
+3. **`pyproject.toml` finalisé** :
+   - `package-data` : ajout `**/*.tcss` (styles TUI absents précédemment)
+   - `classifiers` : `Pre-Alpha` → `Alpha`
+
+4. **CI/CD GitHub Actions** (`.github/workflows/ci.yml`) :
+   - Job `lint` : flake8 `--select=E9,F63,F7,F82` (erreurs critiques seulement)
+   - Job `test` : `pip install -e ".[dev]"` + smoke `eva --version` + `pytest`
+   - Python 3.9 uniquement (conforme `requires-python = ">=3.9,<3.10"`)
+   - Note sécurité : `host=127.0.0.1` commenté, TestClient sans bind réseau
+
+5. **Validation locale** :
+   - `pip install -e .` → `Successfully installed eva-assistant-0.3.0` ✅
+   - `eva --version` → `EVA 0.3.0` ✅
+   - `python -c "import eva; print(eva.__version__)"` → `0.3.0` ✅
+   - `pytest --tb=short -q` → `495 passed, 0 régression` ✅
+   - `flake8 eva/ --select=E9,F63,F7,F82` → aucune erreur critique ✅
+
+---
+
 ## 📦 Annexes — Chiffres Clés
 
 - Modules : 37+
 - Tests : 495
 - Coverage : ~95%
 - Durée suite : ~15s
+- Version : 0.3.0 (PEP 440)
 - Niveau : PRO
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — R-033 R-030 R-031 R-032)
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) démarrée)

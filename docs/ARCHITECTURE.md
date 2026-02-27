@@ -2,9 +2,9 @@
 
 Documentation de l'architecture globale du projet EVA.
 
-- Version : 0.2.0-p2
-- Dernière mise à jour : 2026-02-27
-- Phase : P3 (R-033 ✅ — R-030 ✅ — R-031 ✅)
+- Version : 0.3.0
+- Dernière mise à jour : 2026-02-28
+- Phase : P3 ✅ COMPLÈTE (R-033 ✅ — R-030 ✅ — R-031 ✅ — R-032 ✅) | P4 en cours
 
 ---
 
