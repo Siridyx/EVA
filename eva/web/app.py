@@ -306,7 +306,14 @@ def _build_html() -> str:
 
     function hideThinking(responseText) {{
       if (thinkingEl) {{
-        thinkingEl.textContent = responseText;
+        if (responseText !== null && responseText !== undefined) {{
+          // Remplace le texte "Réfléchit…" par la vraie réponse
+          thinkingEl.textContent = responseText;
+        }} else {{
+          // Erreur : supprimer l'indicateur du DOM plutôt qu'afficher "null"
+          const parentMsg = thinkingEl.closest(".msg");
+          if (parentMsg) parentMsg.remove();
+        }}
         thinkingEl = null;
       }}
     }}
@@ -363,8 +370,7 @@ def _build_html() -> str:
 
         if (!res.ok) {{
           const err = await res.json().catch(() => ({{}}));
-          hideThinking(null);
-          if (thinkingEl === null) {{}} // already cleared
+          hideThinking(null);  // supprime l'indicateur du DOM
           addError(err.detail || "Erreur HTTP " + res.status);
         }} else {{
           const data = await res.json();
