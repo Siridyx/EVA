@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 4 — Qualité & Production (en cours)
-Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅
+Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅
 Dernière mise à jour : 2026-02-28
 
 ### 🎯 Objectif du Journal
@@ -851,4 +851,56 @@ pytest --tb=short -q              → 501 passed, 2 skipped, 27 xfailed, 4 xpass
 
 ---
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE)
+### 🔹 Phase 4(C) — SSE Streaming + Web UX (2026-02-28)
+
+**Objectif** : réponse token par token via `GET /chat/stream` + Web UI mise à jour.
+
+#### Fichiers modifiés
+
+| Fichier | Action | Description |
+|---|---|---|
+| `eva/api/app.py` | MODIFIÉ | imports (json, Query, StreamingResponse, AsyncGenerator) + endpoint `/chat/stream` |
+| `eva/web/app.py` | MODIFIÉ | import `_state`, injection clé HTML, EventSource JS, fix /status auth |
+| `tests/unit/test_api.py` | MODIFIÉ | 3 nouveaux tests SSE |
+
+#### Décisions techniques
+
+**FAKE STREAM (Phase 4(C)) vs streaming natif (Phase 5)** :
+- L'architecture pipeline (ConversationEngine → LLMClient → OllamaProvider) est entièrement synchrone
+- OllamaProvider utilise `"stream": False` — réponse complète avant retour
+- Refactoring streaming réel = 4 fichiers + complexité tool calling → reporté Phase 5
+- FAKE STREAM : `engine.process()` via `asyncio.to_thread` → split mots → `asyncio.sleep(0.04)` par mot
+- Documenté clairement `# TODO Phase 5` dans le code
+
+**EventSource vs fetch+ReadableStream** :
+- EventSource : API navigateur native, reconnexion automatique (à désactiver via `es.close()`)
+- Limitation : ne supporte pas les headers customs → clé API passée en query param `?api_key=<key>`
+- Sécurité acceptable pour outil localhost (URL/log locaux uniquement)
+- Fallback programmatique : header `Authorization: Bearer` ou `X-EVA-Key` toujours accepté
+
+**Injection clé dans HTML** :
+- `_HTML` pré-construit au chargement du module (f-string, immuable)
+- `__API_KEY__` placeholder dans le JS (`const API_KEY = "__API_KEY__"`)
+- Substitution à la requête GET / : `_HTML.replace("__API_KEY__", key, 1)`
+- `_state.key_manager.key` accessible via `from eva.api.app import _state`
+
+**Réutilisation `thinkingEl`** :
+- Existant : `showThinking()` crée un `.msg-text` EVA avec "Réfléchit…" et stocke la réf dans `thinkingEl`
+- SSE : au lieu de `hideThinking(text)`, on met à jour `thinkingEl.textContent` token par token
+- Résultat : 0 élément DOM créé/détruit pendant le stream (performance + UX cohérente)
+
+**Fix `/status` polling** :
+- Bug découvert : web UI appelait `fetch("/status")` sans auth depuis Phase 4(B)
+- Fix : `const headers = API_KEY ? { "Authorization": "Bearer " + API_KEY } : {};`
+
+#### Validation
+
+```
+pytest tests/unit/test_api.py -v  → 13/13 PASSED (10 existants + 3 SSE)
+pytest --tb=short -q              → 504 passed, 2 skipped, 27 xfailed, 4 xpassed (25s)
+                                     0 régression
+```
+
+---
+
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE)

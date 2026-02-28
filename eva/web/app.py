@@ -4,6 +4,11 @@ EVA Web — Interface browser légère (R-032).
 Scope Phase 3 :
     GET / — page HTML complète (chat + status)
 
+Phase 4(C) :
+    - Injection clé API dans la page (GET / à chaque requête)
+    - EventSource pour /chat/stream (streaming SSE token par token)
+    - Correction auth /status dans le polling (Bearer header)
+
 Architecture :
     Module-plugin : l'import de ce module enregistre GET /
     sur l'app FastAPI existante (R-031).
@@ -24,6 +29,7 @@ Standards :
 from __future__ import annotations
 
 from eva import __version__
+from eva.api.app import _state  # noqa: F401  — accès au key_manager pour injection clé
 from eva.api.app import app  # réutilise l'app FastAPI R-031 (+ lifespan + _state)
 from fastapi.responses import HTMLResponse
 
@@ -34,7 +40,11 @@ from fastapi.responses import HTMLResponse
 
 
 def _build_html() -> str:
-    """Construit la page HTML complète avec CSS et JS embarqués."""
+    """Construit la page HTML complète avec CSS et JS embarqués.
+
+    La clé API (__API_KEY__) est injectée dynamiquement à chaque requête GET /
+    via _HTML.replace("__API_KEY__", key, 1) dans web_index().
+    """
     return f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -269,8 +279,12 @@ def _build_html() -> str:
     const statusText = document.getElementById("status-text");
 
     // ── État ─────────────────────────────────────────────────────────────────
-    let conversationId = null;  // maintenu côté client
-    let engineRunning  = false;
+    let conversationId  = null;   // maintenu côté client
+    let engineRunning   = false;
+    let _evaStreamAccum = "";     // accumule les tokens SSE en cours
+
+    // Clé API injectée par le serveur à la génération de la page
+    const API_KEY = "__API_KEY__";
 
     // ── Utilitaires ──────────────────────────────────────────────────────────
     function addMessage(sender, text, cls) {{
@@ -289,7 +303,7 @@ def _build_html() -> str:
       div.appendChild(textEl);
       history.appendChild(div);
       history.scrollTop = history.scrollHeight;
-      return textEl;  // retourné pour replace_thinking
+      return textEl;  // retourné pour mise à jour progressive (SSE)
     }}
 
     function addEva(text)    {{ addMessage("EVA", text, "msg-eva"); }}
@@ -298,6 +312,9 @@ def _build_html() -> str:
     function addError(text)  {{ addMessage("Erreur", text, "msg-err"); }}
 
     // ── Indicateur "EVA réfléchit…" ──────────────────────────────────────────
+    // thinkingEl : référence au .msg-text de l'indicateur EVA.
+    // Réutilisé pendant le SSE pour afficher les tokens progressivement
+    // (évite de créer un nouvel élément DOM au premier token).
     let thinkingEl = null;
 
     function showThinking() {{
@@ -307,10 +324,9 @@ def _build_html() -> str:
     function hideThinking(responseText) {{
       if (thinkingEl) {{
         if (responseText !== null && responseText !== undefined) {{
-          // Remplace le texte "Réfléchit…" par la vraie réponse
           thinkingEl.textContent = responseText;
         }} else {{
-          // Erreur : supprimer l'indicateur du DOM plutôt qu'afficher "null"
+          // Erreur : supprimer l'indicateur du DOM
           const parentMsg = thinkingEl.closest(".msg");
           if (parentMsg) parentMsg.remove();
         }}
@@ -321,7 +337,9 @@ def _build_html() -> str:
     // ── Polling statut ───────────────────────────────────────────────────────
     async function pollStatus() {{
       try {{
-        const res = await fetch("/status");
+        // /status requiert auth depuis Phase 4(B)
+        const headers = API_KEY ? {{ "Authorization": "Bearer " + API_KEY }} : {{}};
+        const res = await fetch("/status", {{ headers }});
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         engineRunning = data.engine === "RUNNING";
@@ -348,45 +366,72 @@ def _build_html() -> str:
     pollStatus();
     setInterval(pollStatus, 5000);
 
-    // ── Envoi message ────────────────────────────────────────────────────────
-    async function sendMessage(text) {{
+    // ── Envoi message (SSE / EventSource) ────────────────────────────────────
+    // Phase 4(C) : remplace fetch POST /chat par EventSource GET /chat/stream
+    // EventSource ne supporte pas les headers customs → clé passée en query param.
+    function sendMessage(text) {{
       if (!text.trim()) return;
 
       addUser(text);
       input.value = "";
       input.disabled = true;
       sendBtn.disabled = true;
-      showThinking();
+      showThinking();  // affiche "Réfléchit…" — thinkingEl = .msg-text
 
-      try {{
-        const payload = {{ message: text }};
-        if (conversationId) payload.conversation_id = conversationId;
+      // Construire l'URL SSE avec les paramètres
+      const params = new URLSearchParams({{ message: text }});
+      if (conversationId) params.set("conversation_id", conversationId);
+      if (API_KEY) params.set("api_key", API_KEY);
 
-        const res = await fetch("/chat", {{
-          method: "POST",
-          headers: {{ "Content-Type": "application/json" }},
-          body: JSON.stringify(payload),
-        }});
+      _evaStreamAccum = "";
+      const es = new EventSource("/chat/stream?" + params.toString());
 
-        if (!res.ok) {{
-          const err = await res.json().catch(() => ({{}}));
-          hideThinking(null);  // supprime l'indicateur du DOM
-          addError(err.detail || "Erreur HTTP " + res.status);
-        }} else {{
-          const data = await res.json();
-          conversationId = data.conversation_id;
-          hideThinking(data.response);
+      // event: meta — reçoit conversation_id et provider
+      es.addEventListener("meta", (e) => {{
+        const d = JSON.parse(e.data);
+        conversationId = d.conversation_id;
+      }});
+
+      // event: token — accumule et affiche progressivement dans thinkingEl
+      es.addEventListener("token", (e) => {{
+        const d = JSON.parse(e.data);
+        _evaStreamAccum += d.text;
+        if (thinkingEl) {{
+          // Premier token : remplace "Réfléchit…" par le texte en cours
+          thinkingEl.textContent = _evaStreamAccum;
+          history.scrollTop = history.scrollHeight;
         }}
-      }} catch (e) {{
-        hideThinking(null);
-        addError("Impossible de contacter le serveur : " + e.message);
-      }} finally {{
-        if (engineRunning) {{
-          input.disabled = false;
-          sendBtn.disabled = false;
+      }});
+
+      // event: done — fin normale du stream
+      es.addEventListener("done", () => {{
+        es.close();
+        if (!_evaStreamAccum && thinkingEl) {{
+          thinkingEl.textContent = "…";  // fallback si aucun token reçu
         }}
+        thinkingEl = null;
+        if (engineRunning) {{ input.disabled = false; sendBtn.disabled = false; }}
         input.focus();
-      }}
+      }});
+
+      // event: error (custom du serveur) OU erreur réseau/HTTP
+      // - e.data présent  → événement "error" envoyé par le serveur
+      // - e.data absent   → erreur de connexion (401, réseau, etc.)
+      es.addEventListener("error", (e) => {{
+        es.close();
+        hideThinking(null);  // supprime l'indicateur "Réfléchit…"
+        if (e.data) {{
+          try {{
+            addError(JSON.parse(e.data).message || "Erreur serveur");
+          }} catch (_) {{
+            addError("Erreur serveur");
+          }}
+        }} else {{
+          addError("Connexion perdue ou erreur serveur (vérifiez la clé API)");
+        }}
+        if (engineRunning) {{ input.disabled = false; sendBtn.disabled = false; }}
+        input.focus();
+      }});
     }}
 
     // ── Événements formulaire ─────────────────────────────────────────────────
@@ -404,6 +449,7 @@ def _build_html() -> str:
 
 
 # Construire le HTML une seule fois au chargement du module
+# La clé API (__API_KEY__) sera remplacée dynamiquement dans web_index()
 _HTML: str = _build_html()
 
 
@@ -417,10 +463,15 @@ async def web_index() -> HTMLResponse:
     """
     Interface browser EVA.
 
-    Consomme POST /chat et GET /status (R-031).
+    Consomme GET /chat/stream (SSE, Phase 4(C)) et GET /status (R-031).
     HTML/CSS/JS entièrement embarqués.
+
+    Injection de la clé API dans la page à chaque requête (Phase 4(C)) :
+    le placeholder __API_KEY__ est remplacé par la vraie clé pour que
+    le JS puisse appeler /chat/stream?api_key=<key> via EventSource.
     """
-    return HTMLResponse(content=_HTML)
+    api_key = _state.key_manager.key if _state.key_manager else ""
+    return HTMLResponse(content=_HTML.replace("__API_KEY__", api_key, 1))
 
 
 # ---------------------------------------------------------------------------

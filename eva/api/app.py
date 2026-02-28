@@ -12,8 +12,13 @@ Phase 4(B) :
     /status : protégé (401 sans clé valide)
     /chat   : protégé + rate limited (401 sans clé, 429 si > 60 req/min)
 
+Phase 4(C) :
+    GET /chat/stream : SSE streaming (auth + rate limit)
+    FAKE STREAM : engine.process() → split mots + délai simulé
+    Phase 5 branchera le streaming natif OllamaProvider.
+
 Future phases :
-    - Streaming SSE (Phase 4(C))
+    - Streaming natif provider (Phase 5)
     - Exposition 0.0.0.0 (Phase 5, après validation auth)
     - WebSocket (Phase 5)
 
@@ -35,13 +40,15 @@ Standards :
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
 from eva import __version__
@@ -249,7 +256,8 @@ app = FastAPI(
         "Endpoints :\n"
         "- `GET /health` : healthcheck **public** (toujours 200)\n"
         "- `GET /status` : état du moteur (auth requise)\n"
-        "- `POST /chat` : envoyer un message (auth + rate limit)"
+        "- `POST /chat` : envoyer un message (auth + rate limit)\n"
+        "- `GET /chat/stream` : streaming SSE — auth + rate limit (FAKE STREAM Phase 4(C))"
     ),
     version=__version__,
     lifespan=lifespan,
@@ -415,6 +423,121 @@ async def chat(request: ChatRequest) -> ChatResponse:
             status_code=500,
             detail=f"Erreur lors du traitement : {exc}",
         )
+
+
+@app.get("/chat/stream", tags=["Chat"])
+async def chat_stream(
+    request: Request,
+    message: str = Query(..., min_length=1, max_length=2000,
+                         description="Message envoyé à EVA."),
+    conversation_id: Optional[str] = Query(None,
+                                           description="ID conversation (optionnel)."),
+    api_key: Optional[str] = Query(None,
+                                   description="Clé API EVA (pour EventSource navigateur)."),
+    authorization: Optional[str] = Header(None),
+    x_eva_key: Optional[str] = Header(None, alias="X-EVA-Key"),
+) -> StreamingResponse:
+    """
+    GET /chat/stream — Streaming SSE token par token.
+
+    **Auth requise + Rate limited.**
+
+    Accepte la clé via (par ordre de priorité) :
+
+    - Header `Authorization: Bearer <key>`  (usage programmatique / curl)
+    - Header `X-EVA-Key: <key>`             (fallback header)
+    - Query param `?api_key=<key>`          (EventSource navigateur — headers non supportés)
+
+    **Protocole SSE :**
+
+    ```
+    event: meta   → {"conversation_id": "...", "provider": "ollama"}
+    event: token  → {"text": "chunk"}       (N fois)
+    event: done   → {"latency_ms": N, "ok": true}
+    event: error  → {"message": "..."}      (fin de stream)
+    ```
+
+    **NOTE :** FAKE STREAM Phase 4(C) — engine.process() bloquant → split par mots +
+    délai simulé 40ms/mot. Phase 5 branchera le streaming natif OllamaProvider.
+    """
+    # --- Auth inline (supporte query param pour EventSource navigateur) ---
+    if _state.key_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Sécurité non initialisée. Relancez l'API.",
+        )
+    provided: Optional[str] = None
+    if authorization and authorization.startswith("Bearer "):
+        provided = authorization[7:]
+    elif x_eva_key:
+        provided = x_eva_key
+    elif api_key:
+        provided = api_key
+    if provided is None or not _state.key_manager.verify(provided):
+        raise HTTPException(
+            status_code=401,
+            detail="Clé API requise ou invalide.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # --- Rate limit ---
+    if _state.rate_limiter is not None:
+        client_ip = request.client.host if request.client else "unknown"
+        if not _state.rate_limiter.is_allowed(client_ip):
+            raise HTTPException(
+                status_code=429,
+                detail="Trop de requêtes. Limite : 60 req/min.",
+                headers={"Retry-After": "60"},
+            )
+
+    # --- Engine check ---
+    if _state.engine is None or not _state.engine.is_running:
+        raise HTTPException(
+            status_code=503,
+            detail="Moteur EVA non démarré. Utilisez /start ou relancez l'API.",
+        )
+
+    async def _event_generator() -> AsyncGenerator[str, None]:
+        """
+        Générateur SSE — FAKE STREAM Phase 4(C).
+
+        Appelle engine.process() (synchrone) via asyncio.to_thread,
+        puis simule le streaming en découpant la réponse mot par mot.
+        TODO Phase 5 : remplacer par streaming natif OllamaProvider.
+        """
+        conv_id = conversation_id or str(uuid.uuid4())
+        t0 = time.monotonic()
+
+        # event: meta — conversation_id + provider
+        yield (
+            f"event: meta\n"
+            f"data: {json.dumps({'conversation_id': conv_id, 'provider': 'ollama'})}\n\n"
+        )
+
+        try:
+            response_text: str = await asyncio.to_thread(
+                _state.engine.process,  # type: ignore[union-attr]
+                message,
+            )
+        except Exception as exc:
+            yield f"event: error\ndata: {json.dumps({'message': str(exc)})}\n\n"
+            return
+
+        # FAKE STREAM : découpage mot par mot, ~25 "tokens"/sec simulés
+        words = response_text.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == 0 else f" {word}"
+            yield f"event: token\ndata: {json.dumps({'text': chunk})}\n\n"
+            await asyncio.sleep(0.04)
+
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        yield f"event: done\ndata: {json.dumps({'latency_ms': latency_ms, 'ok': True})}\n\n"
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ---------------------------------------------------------------------------

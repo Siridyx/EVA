@@ -1,5 +1,5 @@
 """
-Tests de l'API REST FastAPI (R-031 + Phase 4(B) auth) — 10 tests.
+Tests de l'API REST FastAPI (R-031 + Phase 4(B) auth + Phase 4(C) SSE) — 13 tests.
 
 Stratégie :
 - TestClient Starlette (synchrone, sans lifespan — pas d'init EVA réelle)
@@ -247,3 +247,45 @@ def test_rate_limit_429(client, mock_engine, mock_key_manager):
         ).status_code
         == 429
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests Phase 4(C) — SSE streaming (/chat/stream)
+# ---------------------------------------------------------------------------
+
+
+@requires_fastapi
+def test_stream_no_auth_401(client, mock_engine, mock_key_manager):
+    """GET /chat/stream sans auth → 401 (auth vérifiée avant engine check)."""
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.engine = mock_engine
+    r = client.get("/chat/stream", params={"message": "test"})
+    assert r.status_code == 401
+
+
+@requires_fastapi
+def test_stream_engine_not_started_503(client, mock_key_manager):
+    """GET /chat/stream auth valide mais engine None → 503."""
+    api_module._state.key_manager = mock_key_manager
+    # engine reste None (reset_state)
+    r = client.get(
+        "/chat/stream",
+        params={"message": "test", "api_key": TEST_API_KEY},
+    )
+    assert r.status_code == 503
+
+
+@requires_fastapi
+def test_stream_valid_auth_200(client, mock_engine, mock_key_manager):
+    """GET /chat/stream auth valide → 200, text/event-stream, meta + token + done."""
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    r = client.get(
+        "/chat/stream",
+        params={"message": "test", "api_key": TEST_API_KEY},
+    )
+    assert r.status_code == 200
+    assert "text/event-stream" in r.headers.get("content-type", "")
+    assert "event: meta" in r.text
+    assert "event: token" in r.text
+    assert "event: done" in r.text

@@ -8,6 +8,16 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 4(C) — SSE Streaming + Web UX** :
+  - `GET /chat/stream` : endpoint SSE, auth inline (Bearer header OU `?api_key=<key>` pour EventSource)
+  - Rate limiting identique à `/chat` — `/health` reste public
+  - FAKE STREAM : réponse complète → split mots + délai simulé 40ms/mot (TODO Phase 5 : Ollama natif)
+  - Protocole : `event:meta` → `event:token` (N) → `event:done` | `event:error`
+  - `eva/web/app.py` : injection clé API dans le HTML à chaque GET / (`__API_KEY__` placeholder)
+  - Web UI : EventSource natif → tokens affichés un par un dans le même élément DOM (`thinkingEl`)
+  - Web UI : correction polling `/status` → ajout `Authorization: Bearer <key>` (manquait depuis Phase 4(B))
+  - 3 nouveaux tests SSE (401, 503, 200+text/event-stream) — 504 tests passent, 0 régression
+
 - **Phase 4(B) — Sécurité API REST** :
   - `eva/api/security.py` (nouveau) : `ApiKeyManager` + `RateLimiter`
     - Clé API 256 bits (`secrets.token_hex(32)`) — générée au 1er lancement dans `eva/data/secrets/api_key.txt`

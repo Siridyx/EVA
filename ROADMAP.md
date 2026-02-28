@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | 🔄 WIP  | 56% (5/9)   | 501   | ~15s   |
+| Phase 4   | 🔄 WIP  | 60% (6/10)  | 504   | ~25s   |
 
-**Total items complétés** : 34/39 (87%)
+**Total items complétés** : 35/40 (87%)
 
 ---
 
@@ -389,7 +389,19 @@ Objectif : projet publiable.
   - 6 nouveaux tests (health public, status 401, chat 401, chat 401 invalide, chat 200 valide, 429 rate limit)
   - Total tests API : 10 (4 existants mis à jour + 6 nouveaux)
 
-### Phase 4(C) et suivantes — À venir
+### Phase 4(C) — Streaming SSE ✅ VALIDÉ (2026-02-28)
+
+- [x] [P4][M][done] R-042c — SSE Streaming + Web UX (deps: R-031, R-042b) ✅ VALIDÉ
+  - `GET /chat/stream` : endpoint SSE, auth inline (Bearer header + query param `api_key` pour EventSource)
+  - Rate limit appliqué identiquement à `/chat`
+  - FAKE STREAM : `engine.process()` → split mots + délai 40ms/mot (documenté TODO Phase 5)
+  - Protocole SSE : `event:meta` → `event:token` (N) → `event:done` | `event:error`
+  - Web UI (`eva/web/app.py`) : injection clé dans la page HTML à la requête GET /
+  - Web UI : EventSource navigateur natif (`/chat/stream?api_key=<key>`) — token par token
+  - Web UI : correction polling `/status` (ajout header `Authorization: Bearer <key>`)
+  - 3 nouveaux tests SSE (401 sans auth, 503 engine absent, 200 + text/event-stream)
+
+### Phase 4(D) et suivantes — À venir
 
 - [ ] [P4][M][todo] R-042 — Documentation API complète (deps: R-031)
 - [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-041)
@@ -398,8 +410,8 @@ Objectif : projet publiable.
   - Network guard (bloquer socket si pas mocké) → DEBT-004
   - Pytest markers (unit vs integration) → DEBT-005
 
-**Statut** : 5/9 items (56%) — Phase 4(A) + 4(B) ✅
-**Tests** : 501 passed (~15s)
+**Statut** : 6/10 items (60%) — Phase 4(A) + 4(B) + 4(C) ✅
+**Tests** : 504 passed (~25s)
 **Dépendances** : Toutes phases précédentes
 
 ---
@@ -408,13 +420,13 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur    | Objectif          |
 | ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 501       | 200+ (P2 complet) |
-| **Durée tests**    | ~15s      | <30s              |
+| **Tests totaux**   | 504       | 200+ (P2 complet) |
+| **Durée tests**    | ~25s      | <30s              |
 | **Coverage**       | ~95%      | > 90%             |
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |
 | **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P4 (56%)  | P4 (100%)         |
+| **Phase actuelle** | P4 (60%)  | P4 (100%)         |
 
 ---
 
@@ -454,11 +466,12 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 4(A) + 4(B) ✅
+**Immédiat** : Phase 4(A) + 4(B) + 4(C) ✅
 
-**Court terme** : Phase 4(C)
+**Court terme** : Phase 4(D)
 
-- **(C) Streaming SSE** : `POST /chat/stream` + UI token-by-token (TUI + Web)
+- **(D) Streaming SSE natif** : brancher streaming Ollama réel (TODO Phase 5 dans code)
+- **(D) Documentation API complète** (R-042)
 
 **Long terme** : Phase 4 complète → 0.4.0
 
@@ -468,7 +481,7 @@ Objectif : projet publiable.
 
 ---
 
-**Dernière modification** : 2026-02-28 (Phase 4(B) — API key auth + rate limiting)
+**Dernière modification** : 2026-02-28 (Phase 4(C) — SSE streaming + web UX)
 
 ## 🏗️ Principes Fondamentaux
 
