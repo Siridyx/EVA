@@ -127,9 +127,9 @@ def _avg(lst: List[float]) -> float:
 
 def run_profile(n: int = 100, top_n: int = 20) -> int:
     with tempfile.TemporaryDirectory(prefix="eva_profile_") as tmp_dir:
-        print(f"\nEVA Engine Profiler — R-044")
+        print(f"\nEVA Engine Profiler - R-044")
         print(f"tmp_dir : {tmp_dir}")
-        print(f"n_iterations : {n}  (mock LLM — pas d'Ollama)")
+        print(f"n_iterations : {n}  (mock LLM - pas d'Ollama)")
         print()
 
         # Setup
@@ -174,10 +174,10 @@ def run_profile(n: int = 100, top_n: int = 20) -> int:
         print_timing("conversation_turn_complete", _avg(turn_ms_list),
                      f"n={len(turn_ms_list)}")
         print_timing("llm_complete (mock)", _avg(llm_ms_list),
-                     "LLM réel = 100–5000ms")
+                     "LLM reel = 100-5000ms")
         print_timing("memory saves total / appel",
                      (t_total / n) - _avg(turn_ms_list) if turn_ms_list else 0.0,
-                     "estimé")
+                     "estime")
         print_timing("memory_add events total", mem_count,
                      "events (2/appel = user+assistant)")
         print()
@@ -190,7 +190,7 @@ def run_profile(n: int = 100, top_n: int = 20) -> int:
         profile_output = s.getvalue()
 
         print("=" * 60)
-        print(f"Top {top_n} fonctions — cProfile (cumtime, {n} appels)")
+        print(f"Top {top_n} fonctions - cProfile (cumtime, {n} appels)")
         print("=" * 60)
         # Filtrer les lignes vides de tête
         lines = [l for l in profile_output.splitlines() if l.strip() or "function" in l.lower()]
@@ -199,10 +199,10 @@ def run_profile(n: int = 100, top_n: int = 20) -> int:
 
         # --- Résumé ---
         print("=" * 60)
-        print("Résumé")
+        print("Resume")
         print("=" * 60)
         print(f"  Temps total     : {t_total:.1f} ms pour {n} appels")
-        print(f"  Temps / appel   : {t_total / n:.3f} ms  (pipeline seul, LLM mocké)")
+        print(f"  Temps / appel   : {t_total / n:.3f} ms  (pipeline seul, LLM mocke)")
         print(f"  Throughput mock : {1000 * n / t_total:.1f} appels/sec")
         print()
         print("  NOTE : LLM Ollama reel = 100-5000ms dominant -> throughput reel ~0.2-10 appels/sec")

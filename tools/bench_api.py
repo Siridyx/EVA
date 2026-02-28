@@ -62,7 +62,7 @@ def run_bench(
     try:
         import requests
     except ImportError:
-        print("Erreur : 'requests' non installé. pip install requests")
+        print("Erreur : 'requests' non installe. pip install requests")
         return 1
 
     headers = {"Authorization": f"Bearer {api_key}"}
@@ -74,7 +74,7 @@ def run_bench(
     print("=" * 60)
 
     # --- Warm-up ---
-    print(f"Warm-up ({warmup} requêtes)...", end=" ", flush=True)
+    print(f"Warm-up ({warmup} requetes)...", end=" ", flush=True)
     for _ in range(warmup):
         try:
             session.get(f"{base_url}/health", timeout=5)
@@ -118,7 +118,7 @@ def run_bench(
             if r.status_code not in (200, 503):
                 print(f"WARN /chat [{i+1}] : HTTP {r.status_code}")
                 if r.status_code == 503:
-                    print("  (moteur EVA non démarré — Ollama requis)")
+                    print("  (moteur EVA non demarre - Ollama requis)")
                     break
         if chat_ms:
             _print_stats("POST /chat", chat_ms)
