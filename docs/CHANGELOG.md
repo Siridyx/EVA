@@ -8,6 +8,17 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 4(D) — Test Hardening (R-045)** :
+  - `tests/conftest.py` (nouveau) : network guard session-scoped (autouse) — bloque toute connexion réseau externe
+  - Network guard via `socket.getaddrinfo` : point bas niveau, couvre requests/httpx/urllib/asyncio
+  - Loopback autorisé : `127.0.0.1`, `localhost`, `::1`, `0.0.0.0`, `testserver` (FastAPI TestClient)
+  - Auto-marking : `pytest_collection_modifyitems` — `tests/unit/` → `unit` | `tests/smoke/` → `smoke` | `tests/integration/` → `integration`
+  - Zéro annotation `@pytest.mark.xxx` nécessaire dans les fichiers de tests
+  - `pyproject.toml` : `asyncio_mode = "strict"`, descriptions markers enrichies, DeprecationWarning pytest-asyncio supprimé
+  - `tests/unit/test_network_guard.py` : 7 tests sentinelles (3 blocages prouvés + 4 autorisations)
+  - Commandes documentées : `pytest -m unit` (dev rapide) | `pytest -m integration` | `pytest` (CI)
+  - **511 tests passent**, 0 régression
+
 - **Phase 4(C) — SSE Streaming + Web UX** :
   - `GET /chat/stream` : endpoint SSE, auth inline (Bearer header OU `?api_key=<key>` pour EventSource)
   - Rate limiting identique à `/chat` — `/health` reste public

@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | 🔄 WIP  | 60% (6/10)  | 504   | ~25s   |
+| Phase 4   | 🔄 WIP  | 70% (7/10)  | 511   | ~8min  |
 
-**Total items complétés** : 35/40 (87%)
+**Total items complétés** : 36/40 (90%)
 
 ---
 
@@ -401,17 +401,25 @@ Objectif : projet publiable.
   - Web UI : correction polling `/status` (ajout header `Authorization: Bearer <key>`)
   - 3 nouveaux tests SSE (401 sans auth, 503 engine absent, 200 + text/event-stream)
 
-### Phase 4(D) et suivantes — À venir
+### Phase 4(D) — Test Hardening ✅ VALIDÉ (2026-02-28)
+
+- [x] [P4][M][done] R-045 — Test Hardening avancé (deps: R-018) ✅ VALIDÉ
+  - `tests/conftest.py` (nouveau) : network guard autouse session (`socket.getaddrinfo`)
+  - Loopback autorisé : 127.0.0.1 / localhost / ::1 / testserver
+  - Auto-marking : `pytest_collection_modifyitems` — chemin → marker (unit/integration/smoke)
+  - `asyncio_mode = "strict"` ajouté dans `pyproject.toml`
+  - 7 tests sentinelles (`test_network_guard.py`) — 3 blocages prouvés + 4 autorisations
+  - DEBT-004 ✅ (network guard) + DEBT-005 ✅ (markers)
+  - Commandes : `pytest -m unit` | `pytest -m integration` | `pytest`
+
+### Phase 4(E) et suivantes — À venir
 
 - [ ] [P4][M][todo] R-042 — Documentation API complète (deps: R-031)
 - [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-041)
 - [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
-- [ ] [P4][M][todo] R-045 — Test Hardening avancé (deps: R-018)
-  - Network guard (bloquer socket si pas mocké) → DEBT-004
-  - Pytest markers (unit vs integration) → DEBT-005
 
-**Statut** : 6/10 items (60%) — Phase 4(A) + 4(B) + 4(C) ✅
-**Tests** : 504 passed (~25s)
+**Statut** : 7/10 items (70%) — Phase 4(A) + 4(B) + 4(C) + 4(D) ✅
+**Tests** : 511 passed (~8min)
 **Dépendances** : Toutes phases précédentes
 
 ---
@@ -466,12 +474,12 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 4(A) + 4(B) + 4(C) ✅
+**Immédiat** : Phase 4(A) + 4(B) + 4(C) + 4(D) ✅
 
-**Court terme** : Phase 4(D)
+**Court terme** : Phase 4(E)
 
-- **(D) Streaming SSE natif** : brancher streaming Ollama réel (TODO Phase 5 dans code)
-- **(D) Documentation API complète** (R-042)
+- **(E) Audit sécurité** (R-043) — surfaces d'attaque API
+- **(E) Documentation API complète** (R-042)
 
 **Long terme** : Phase 4 complète → 0.4.0
 
@@ -481,7 +489,7 @@ Objectif : projet publiable.
 
 ---
 
-**Dernière modification** : 2026-02-28 (Phase 4(C) — SSE streaming + web UX)
+**Dernière modification** : 2026-02-28 (Phase 4(D) — Test Hardening R-045)
 
 ## 🏗️ Principes Fondamentaux
 

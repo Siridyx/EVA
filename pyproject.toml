@@ -131,14 +131,19 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# R-045 : --strict-markers interdit tout marker non déclaré ici
+# asyncio_mode strict : chaque test async doit porter @pytest.mark.asyncio
 addopts = "-v --strict-markers"
+asyncio_mode = "strict"
 filterwarnings = [
     "ignore::UserWarning:huggingface_hub",
+    "ignore::DeprecationWarning:pytest_asyncio",
 ]
 markers = [
-    "smoke: smoke tests (quick validation)",
-    "unit: unit tests",
-    "integration: integration tests",
+    # ── Catégories (auto-marquées par tests/conftest.py selon chemin) ──
+    "unit: tests unitaires — rapides, 100%% offline (pytest -m unit)",
+    "integration: tests d'intégration — services réels requis (pytest -m integration)",
+    "smoke: smoke tests — validation basique post-install (pytest -m smoke)",
 ]
 
 [tool.mypy]

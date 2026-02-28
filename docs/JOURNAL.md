@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 4 — Qualité & Production (en cours)
-Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅
+Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅
 Dernière mise à jour : 2026-02-28
 
 ### 🎯 Objectif du Journal
@@ -903,4 +903,53 @@ pytest --tb=short -q              → 504 passed, 2 skipped, 27 xfailed, 4 xpass
 
 ---
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE)
+---
+
+### 🔹 Phase 4(D) — Test Hardening R-045 (2026-02-28)
+
+**Objectif** : consolider la base de tests avant audit sécurité — réseau bloqué, markers automatiques.
+
+#### Fichiers créés/modifiés
+
+- `tests/conftest.py` ← **NOUVEAU** — network guard + auto-marking
+- `tests/unit/test_network_guard.py` ← **NOUVEAU** — 7 tests sentinelles
+- `pyproject.toml` ← `asyncio_mode = "strict"`, descriptions markers
+
+#### Décisions techniques
+
+**Pourquoi `socket.getaddrinfo` et pas `socket.socket.connect` ?**
+- `getaddrinfo` est le point d'entrée unique pour toute résolution DNS/IP en Python.
+- Couvre automatiquement : `requests`, `httpx`, `urllib`, `asyncio.create_connection`, bibliothèques tierces.
+- Patcher `socket.connect` nécessiterait aussi de patcher `create_connection`, `connect_ex`, etc. — fragile.
+- Un seul patch, couverture maximale, maintenance minimale.
+
+**Pourquoi `scope="session"` pour le network guard ?**
+- La protection doit être active pour TOUTE la session, pas test par test.
+- `scope="function"` = 511 setup/teardown supplémentaires = overhead inutile.
+- `autouse=True` garantit l'activation même si un test n'importe pas le conftest explicitement.
+
+**Pourquoi auto-marking via `pytest_collection_modifyitems` ?**
+- Zéro friction développeur : un nouveau test dans `tests/unit/` est automatiquement marqué.
+- Convention stable : la structure de répertoire encode l'intention (unit vs integration).
+- Compatible `--strict-markers` : les markers sont déclarés dans `pyproject.toml`.
+
+**Hôtes autorisés : pourquoi `testserver` ?**
+- FastAPI TestClient (httpx + ASGITransport) ne crée pas de vrai socket TCP.
+- Mais `testserver` peut apparaître comme host dans certains contextes httpx — on le blanche par précaution.
+
+#### Métriques
+
+| Commande | Résultat |
+|---|---|
+| `pytest` (full) | 511 passed, 0 fail |
+| `pytest -m unit` | 507 passed, 0 fail |
+| `pytest -m smoke` | 4 passed, 0 fail |
+
+#### DEBT soldées
+
+- DEBT-004 : Network guard pytest ✅
+- DEBT-005 : Pytest markers unit/integration ✅
+
+---
+
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE)
