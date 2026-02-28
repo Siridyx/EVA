@@ -249,18 +249,53 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
 app = FastAPI(
     title="EVA API",
     description=(
-        "Assistant IA Personnel — API REST (R-031 + Phase 4(B) Auth)\n\n"
-        "Authentification :\n"
-        "- Header `Authorization: Bearer <key>` (principal)\n"
-        "- Header `X-EVA-Key: <key>` (fallback)\n\n"
-        "Endpoints :\n"
-        "- `GET /health` : healthcheck **public** (toujours 200)\n"
-        "- `GET /status` : état du moteur (auth requise)\n"
-        "- `POST /chat` : envoyer un message (auth + rate limit)\n"
-        "- `GET /chat/stream` : streaming SSE — auth + rate limit (FAKE STREAM Phase 4(C))"
+        "## EVA — Assistant IA Personnel\n\n"
+        "API REST locale pour converser avec EVA via Ollama.\n\n"
+        "---\n\n"
+        "### Authentification\n\n"
+        "Trois méthodes acceptées (par ordre de priorité) :\n\n"
+        "```\n"
+        "Authorization: Bearer <key>   # header standard (curl, SDK)\n"
+        "X-EVA-Key: <key>              # header alternatif\n"
+        "?api_key=<key>                # query param (EventSource navigateur)\n"
+        "```\n\n"
+        "Récupérer la clé :\n\n"
+        "```bash\n"
+        "eva --print-api-key           # affiche (ou génère) la clé\n"
+        "# La clé est aussi affichée au démarrage : eva --api\n"
+        "```\n\n"
+        "---\n\n"
+        "### Rate Limiting\n\n"
+        "60 requêtes/minute par IP par défaut.\n"
+        "Configurable via `api.rate_limit_per_min` dans `config.yaml`.\n"
+        "Réponse : HTTP **429** + header `Retry-After: 60`.\n\n"
+        "---\n\n"
+        "### Endpoints\n\n"
+        "| Endpoint | Auth | Rate limit | Description |\n"
+        "|---|---|---|---|\n"
+        "| `GET /health` | Non | Non | Healthcheck public |\n"
+        "| `GET /status` | Oui | Non | État du moteur |\n"
+        "| `POST /chat` | Oui | Oui | Réponse synchrone |\n"
+        "| `GET /chat/stream` | Oui | Oui | Streaming SSE token par token |\n\n"
+        "> **Note :** API conçue pour usage local uniquement (`127.0.0.1`).\n"
+        "> Exposition réseau prévue en Phase 5 après validation du modèle auth."
     ),
     version=__version__,
     lifespan=lifespan,
+    openapi_tags=[
+        {
+            "name": "System",
+            "description": "Healthcheck et statut du moteur EVA.",
+        },
+        {
+            "name": "Chat",
+            "description": (
+                "Conversation avec EVA.\n\n"
+                "- `POST /chat` : réponse synchrone complète (JSON)\n"
+                "- `GET /chat/stream` : réponse en streaming SSE (token par token)"
+            ),
+        },
+    ],
 )
 
 
@@ -343,13 +378,30 @@ async def check_rate_limit(request: Request) -> None:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/health", response_model=HealthResponse, tags=["System"])
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    tags=["System"],
+    summary="Healthcheck public",
+    responses={
+        200: {
+            "description": "API opérationnelle (public — aucune auth requise).",
+            "content": {
+                "application/json": {
+                    "example": {"status": "ok", "version": "0.3.0"},
+                }
+            },
+        }
+    },
+)
 async def health() -> HealthResponse:
     """
     Healthcheck de l'API EVA.
 
     **Public** — Toujours 200 OK si l'API tourne (même en mode dégradé).
     Aucune authentification requise.
+
+    Utile pour sonder la disponibilité de l'API sans clé.
     """
     return HealthResponse(status="ok", version=__version__)
 
@@ -358,14 +410,60 @@ async def health() -> HealthResponse:
     "/status",
     response_model=StatusResponse,
     tags=["System"],
+    summary="État du moteur EVA",
     dependencies=[Depends(require_api_key)],
+    responses={
+        200: {
+            "description": (
+                "Toujours 200 — même si le moteur n'est pas démarré.\n\n"
+                "`engine` : `\"RUNNING\"` | `\"STOPPED\"` | `\"UNAVAILABLE\"`"
+            ),
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "running": {
+                            "summary": "Moteur démarré",
+                            "value": {
+                                "engine": "RUNNING",
+                                "provider": "ollama",
+                                "components": {
+                                    "memory": True,
+                                    "prompt": True,
+                                    "llm": True,
+                                    "conversation": True,
+                                },
+                            },
+                        },
+                        "unavailable": {
+                            "summary": "Moteur non disponible",
+                            "value": {
+                                "engine": "UNAVAILABLE",
+                                "provider": None,
+                                "components": {},
+                            },
+                        },
+                    }
+                }
+            },
+        },
+        401: {
+            "description": "Clé API manquante ou invalide.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Clé API requise. Header : Authorization: Bearer <key>"}
+                }
+            },
+        },
+    },
 )
 async def status() -> StatusResponse:
     """
     Retourne l'état du moteur EVA.
 
     **Auth requise** — Toujours HTTP 200 (même si moteur non démarré).
-    `engine` vaut "RUNNING", "STOPPED" ou "UNAVAILABLE".
+    `engine` vaut `"RUNNING"`, `"STOPPED"` ou `"UNAVAILABLE"`.
+
+    Pratique pour vérifier qu'Ollama est bien connecté avant d'envoyer des messages.
     """
     if _state.engine is None:
         return StatusResponse(
@@ -388,14 +486,82 @@ async def status() -> StatusResponse:
     "/chat",
     response_model=ChatResponse,
     tags=["Chat"],
+    summary="Envoyer un message à EVA (réponse synchrone)",
     dependencies=[Depends(require_api_key), Depends(check_rate_limit)],
+    responses={
+        200: {
+            "description": "Réponse complète d'EVA (JSON).",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "response": "Bonjour ! Je suis EVA, votre assistant IA. Comment puis-je vous aider ?",
+                        "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "metadata": {"provider": "ollama", "latency_ms": 1240},
+                    }
+                }
+            },
+        },
+        401: {
+            "description": "Clé API manquante ou invalide.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Clé API requise. Header : Authorization: Bearer <key>"}
+                }
+            },
+        },
+        422: {
+            "description": "Corps de requête invalide (message vide ou manquant).",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "loc": ["body", "message"],
+                                "msg": "Le message ne peut pas être vide.",
+                                "type": "value_error",
+                            }
+                        ]
+                    }
+                }
+            },
+        },
+        429: {
+            "description": "Trop de requêtes — limite 60 req/min dépassée.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Trop de requêtes. Limite : 60 req/min."}
+                }
+            },
+        },
+        500: {
+            "description": "Erreur interne du moteur EVA.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Erreur lors du traitement."}
+                }
+            },
+        },
+        503: {
+            "description": "Moteur EVA non démarré.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Moteur EVA non démarré. Utilisez /start ou relancez l'API."}
+                }
+            },
+        },
+    },
 )
 async def chat(request: ChatRequest) -> ChatResponse:
     """
-    Envoie un message à EVA et retourne la réponse structurée.
+    Envoie un message à EVA et retourne la réponse structurée en JSON.
 
-    **Auth requise + Rate limited** — 60 req/min par IP (configurable).
-    L'appel LLM est non-bloquant (asyncio.to_thread).
+    **Auth requise + Rate limited** — 60 req/min par IP (configurable via `config.yaml`).
+    L'appel LLM est non-bloquant (`asyncio.to_thread`).
+
+    Si `conversation_id` est fourni, EVA poursuit la conversation existante.
+    Sinon, un UUID est généré automatiquement.
+
+    Préférez `GET /chat/stream` pour une UX avec affichage progressif des tokens.
     """
     if _state.engine is None or not _state.engine.is_running:
         raise HTTPException(

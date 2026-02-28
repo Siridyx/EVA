@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 4 — Qualité & Production (en cours)
-Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅ — Phase 4(E) ✅
+Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅ — Phase 4(E) ✅ — Phase 4(F) ✅
 Dernière mise à jour : 2026-02-28
 
 ### 🎯 Objectif du Journal
@@ -999,4 +999,29 @@ Seul item retenu : clé dans source HTML — intentionnel et documenté (local-o
 
 ---
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE — Phase 4(E) VALIDÉE)
+---
+
+### 🔹 Phase 4(F) — Documentation API R-042 (2026-02-28)
+
+**Objectif** : enrichir la documentation OpenAPI générée automatiquement et créer un guide développeur complet.
+
+**Décisions techniques** :
+
+- OpenAPI `description` enrichie dans `app = FastAPI(...)` : table auth (3 méthodes), rate limit config, table endpoints, note "local only". Rendu dans Swagger UI et ReDoc.
+- `openapi_tags` System + Chat : regroupe et décrit les endpoints par catégorie dans `/docs`.
+- Chaque endpoint enrichi avec `summary` court + `responses` avec exemples JSON réalistes (inclus exemples multiples pour `/status` : running vs unavailable).
+- `/chat/stream` : déjà documenté Phase 4(C) avec SSE example — aligné avec les autres.
+- `docs/API.md` : guide standalone complet — ne duplique pas les exemples Swagger mais couvre l'installation, les clients Python/JS, curl multi-tours, SSE avec sseclient-py, non-goals Phase 5.
+
+**Principe R-031 LOCKED respecté** : zéro modification du contrat `/chat` (schéma Pydantic, codes de réponse, champs JSON).
+
+**Métriques** :
+
+- Fichiers modifiés : `eva/api/app.py` (OpenAPI enrichissement)
+- Fichiers créés : `docs/API.md`
+- Tests : 515 passent, 0 régression
+- Nouvelles dépendances : aucune
+
+---
+
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE — Phase 4(E) VALIDÉE — Phase 4(F) VALIDÉE)

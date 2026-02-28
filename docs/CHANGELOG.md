@@ -8,6 +8,15 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 4(F) — Documentation API (R-042)** :
+  - `eva/api/app.py` : description OpenAPI enrichie (auth table, rate limit, endpoints, "local only" notice), `openapi_tags` System + Chat
+  - `/health` : `summary="Healthcheck public"` + `responses={200}` avec exemple
+  - `/status` : `summary="État du moteur EVA"` + `responses={200 (deux exemples running/unavailable), 401}`
+  - `/chat` : `summary="Envoyer un message à EVA"` + `responses={200, 401, 422, 429, 500, 503}` avec exemples réalistes
+  - `/chat/stream` : déjà enrichi Phase 4(C) — aligné avec les autres
+  - `docs/API.md` (nouveau) : guide développeur complet — installation, auth (3 méthodes), curl examples, conversation multi-tours, client Python, SSE avec sseclient-py, rate limit, codes d'erreur, non-goals
+  - **515 tests passent**, 0 régression — contrat R-031 LOCKED inchangé
+
 - **Phase 4(E) — Audit sécurité (R-043)** :
   - `docs/SECURITY_AUDIT.md` (nouveau) : threat model + 14 findings + verdict global (9/10)
   - **F-04 FIXED** : `/chat` — exception interne plus jamais exposée dans `detail` HTTP 500

@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | 🔄 WIP  | 80% (8/10)  | 515   | ~8min  |
+| Phase 4   | 🔄 WIP  | 90% (9/10)  | 515   | ~8min  |
 
-**Total items complétés** : 37/40 (92%)
+**Total items complétés** : 38/40 (95%)
 
 ---
 
@@ -421,12 +421,19 @@ Objectif : projet publiable.
   - 4 tests sécurité : Bearer vide, api_key vide, no-leak /chat, no-leak SSE
   - Vérifications OK documentées : XSS, CORS, binding, timing-safe, path traversal
 
-### Phase 4(F) et suivantes — À venir
+### Phase 4(F) — Documentation API ✅ VALIDÉ (2026-02-28)
 
-- [ ] [P4][M][todo] R-042 — Documentation API complète (deps: R-031)
+- [x] [P4][M][done] R-042 — Documentation API complète (deps: R-031) ✅ VALIDÉ
+  - `eva/api/app.py` : OpenAPI enrichi — description complète auth + rate limit + endpoints table, `openapi_tags` System/Chat
+  - Endpoints enrichis : `summary` + `responses` avec exemples réalistes sur `/health`, `/status`, `/chat`, `/chat/stream`
+  - `docs/API.md` (nouveau) : guide développeur complet — installation, auth, curl examples, SSE, rate limit, non-goals
+  - 0 régression — contrat R-031 LOCKED inchangé
+
+### Phase 4(G) — À venir
+
 - [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
 
-**Statut** : 8/10 items (80%) — Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) ✅
+**Statut** : 9/10 items (90%) — Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) ✅
 **Tests** : 515 passed (~8min)
 **Dépendances** : Toutes phases précédentes
 
@@ -482,22 +489,19 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) ✅
+**Immédiat** : Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) ✅
 
-**Court terme** : Phase 4(F)
+**Court terme** : Phase 4(G)
 
-- **(F) Documentation API complète** (R-042)
-- **(F) Profiling performance** (R-044)
+- **(G) Profiling performance** (R-044)
 
 **Long terme** : Phase 4 complète → 0.4.0
 
-- Audit sécurité (R-043)
-- Profiling performance (R-044)
-- Test hardening avancé (R-045)
+- Profiling performance (R-044) — dernier item Phase 4
 
 ---
 
-**Dernière modification** : 2026-02-28 (Phase 4(E) — Audit sécurité R-043)
+**Dernière modification** : 2026-02-28 (Phase 4(F) — Documentation API R-042)
 
 ## 🏗️ Principes Fondamentaux
 
