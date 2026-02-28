@@ -407,26 +407,25 @@ class EvaTuiApp(App):
         """
         Worker async : appel LLM dans un thread séparé (non-bloquant).
 
+        Note : _llm_worker est une coroutine async lancée via run_worker() —
+        elle tourne dans la boucle d'événements Textual (même thread que l'app).
+        On appelle donc les méthodes UI directement (pas call_from_thread).
+
         Args:
             text: Message utilisateur à traiter
         """
         if self.engine is None or not self.engine.is_running:
-            self.call_from_thread(
-                self._chat.replace_thinking if self._chat else lambda r: None,
-                "Moteur non démarré. Utilisez /start d'abord.",
-            )
+            if self._chat:
+                self._chat.replace_thinking("Moteur non démarré. Utilisez /start d'abord.")
             return
 
         try:
             response = await asyncio.to_thread(self.engine.process, text)
             if self._chat:
-                self.call_from_thread(self._chat.replace_thinking, response)
+                self._chat.replace_thinking(response)
         except Exception as exc:
             if self._chat:
-                self.call_from_thread(
-                    self._chat.replace_thinking,
-                    f"Erreur : {exc}",
-                )
+                self._chat.replace_thinking(f"Erreur : {exc}")
 
     # ------------------------------------------------------------------
     # Actions (bindings)
