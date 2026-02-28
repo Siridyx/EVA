@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | ⏳ TODO | 0% (0/6)    | -     | -      |
+| Phase 4   | 🔄 WIP  | 50% (4/8)   | 495   | ~15s   |
 
-**Total items complétés** : 29/34 (85%)
+**Total items complétés** : 33/38 (87%)
 
 ---
 
@@ -352,20 +352,37 @@ Objectif : UX agréable et accessible.
 
 Objectif : projet publiable.
 
-- [ ] [P4][M][todo] R-040 — CI/CD (deps: R-008, R-018, R-024)
-- [ ] [P4][S][todo] R-041 — Packaging complet (deps: R-017b)
-- [ ] [P4][M][todo] R-042 — Documentation (deps: R-006, R-014, R-020, R-030)
-- [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-016, R-041)
+### Phase 4(A) — Packaging + CI/CD ✅ HARDENED (2026-02-28)
+
+- [x] [P4][S][done] R-040a — Packaging PEP 440 + importlib.metadata ✅ VALIDÉ
+  - `version = "0.3.0"` (MINOR = Phase complète — convention documentée)
+  - Source unique : `pyproject.toml` → `importlib.metadata` → `eva.__version__`
+  - Politique hotfix documentée : `0.3.x` (fix) | `0.4.0.devN` (en cours) | `0.4.0` (Phase stable)
+- [x] [P4][S][done] R-040b — Optional extras séparés ✅ VALIDÉ
+  - Core minimal : `pyyaml + python-dotenv + requests`
+  - `[api]` : `fastapi[standard]` | `[tui]` : `textual` | `[rag]` : `numpy + sentence-transformers`
+  - `[all]` : raccourci `api+tui+rag` | `[dev]` : tests + lint + mypy
+  - `requires-python = ">=3.9,<3.13"` (3.9 baseline + 3.11 LTS validés)
+- [x] [P4][S][done] R-041 — CI/CD GitHub Actions ✅ VALIDÉ
+  - Pipeline : `lint → core-smoke → test (3.9 + 3.11)`
+  - `lint` : flake8 `--select=E9,F63,F7,F82` (erreurs critiques, Python 3.11)
+  - `core-smoke` : `pip install -e .` seul → vérifie install minimal
+  - `test` : `pip install -e ".[dev,api,tui,rag]"` + smokes + pytest (matrix 3.9+3.11)
+- [x] [P4][XS][done] R-041b — LICENSE propriétaire ✅ VALIDÉ
+  - Fichier `LICENSE` : Copyright Siridyx, All rights reserved
+  - `license = {file = "LICENSE"}` dans `pyproject.toml`
+
+### Phase 4(B/C) — À venir
+
+- [ ] [P4][M][todo] R-042 — Documentation API (deps: R-031)
+- [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-041)
 - [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
 - [ ] [P4][M][todo] R-045 — Test Hardening avancé (deps: R-018)
   - Network guard (bloquer socket si pas mocké) → DEBT-004
   - Pytest markers (unit vs integration) → DEBT-005
-  - Détection EVA_TEST_MODE ou PYTEST_CURRENT_TEST
-  - Rationale : R-018 a couvert isolation I/O + timeouts courts (10.35s acceptable P1)
-  - Note : Network guard complexe avec MockTransport, nécessite analyse fine
 
-**Statut** : 0/6 items (0%)  
-**Tests** : -  
+**Statut** : 4/8 items (50%) — Phase 4(A) HARDENED ✅
+**Tests** : 495 passed (~15s)
 **Dépendances** : Toutes phases précédentes
 
 ---
@@ -380,7 +397,7 @@ Objectif : projet publiable.
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |
 | **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P3 (100%) | P3 (100%)         |
+| **Phase actuelle** | P4 (50%)  | P4 (100%)         |
 
 ---
 
@@ -420,21 +437,18 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 2 complète ✅
+**Immédiat** : Phase 4(A) HARDENED ✅
 
-**Court terme** : Phase 3 (UX)
+**Court terme** : Phase 4(B) ou 4(C)
 
-**Moyen terme** : Phase 3 (UX)
+- **(B) Sécurité API** : API key + rate limiting (`eva --api` production-ready)
+- **(C) Streaming SSE** : `POST /chat/stream` + UI token-by-token (TUI + Web)
 
-- Terminal UI
-- API REST
-- Interface web
+**Long terme** : Phase 4 complète → 0.4.0
 
-**Long terme** : Phase 4 (Production)
-
-- CI/CD
-- Audit sécurité
-- Performance
+- Audit sécurité (R-043)
+- Profiling performance (R-044)
+- Test hardening avancé (R-045)
 
 ---
 
