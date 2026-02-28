@@ -17,7 +17,7 @@ Standards :
 """
 
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 
 from eva.llm.llm_client import LLMClient
 from eva.core.config_manager import ConfigManager
@@ -157,6 +157,85 @@ class OllamaProvider(LLMClient):
         
         return reply
 
+
+    def stream(
+        self,
+        messages: List[Dict[str, str]],
+        profile: str = "default",
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> Generator[str, None, None]:
+        """
+        Stream les tokens depuis Ollama (NDJSON, stream=true).
+
+        Yields:
+            Chaque token partiel retourne par Ollama.
+
+        Raises:
+            RuntimeError: Si provider pas demarre.
+            ValueError: Si reponse vide.
+        """
+        if not self.is_running:
+            raise RuntimeError("OllamaProvider not running. Call start() first.")
+
+        # Resoudre profil -> model, params
+        if profile not in self._models:
+            profile = "default"
+        model = self._models.get(profile, self._models.get("default", "llama3.2:latest"))
+        max_tok = max_tokens or self._max_tokens
+        temp = temperature if temperature is not None else self._temperature
+        timeout = self._get_timeout()
+
+        prompt = self._messages_to_prompt(messages)
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": True,
+            "options": {
+                "temperature": temp,
+                "num_predict": max_tok,
+            },
+        }
+        url = f"{self._endpoint}/api/generate"
+        hdrs = {"Content-Type": "application/json"}
+
+        received_any = False
+
+        if self._transport is not None:
+            # Branche test : transport mock avec stream=True
+            resp = self._transport.post(url, json=payload, headers=hdrs, timeout=timeout, stream=True)
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                chunk = json.loads(line)
+                token = chunk.get("response", "")
+                if token:
+                    received_any = True
+                    yield token
+                if chunk.get("done"):
+                    break
+        else:
+            # Branche production — Session HTTP reutilisee
+            import requests
+            if self._http_session is None:
+                self._http_session = requests.Session()
+            with self._http_session.post(
+                url, json=payload, headers=hdrs, timeout=timeout, stream=True
+            ) as resp:
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    chunk = json.loads(line)
+                    token = chunk.get("response", "")
+                    if token:
+                        received_any = True
+                        yield token
+                    if chunk.get("done"):
+                        break
+
+        if not received_any:
+            raise ValueError("OllamaProvider.stream() : reponse vide.")
 
     def _messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
         """

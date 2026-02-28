@@ -30,10 +30,57 @@ class MissingFieldTransport:
 
 
 class ErrorTransport:
-    """Transport mocké qui lève une exception."""
+    """Transport mocke qui leve une exception."""
 
     def post(self, url, json, headers, timeout):
         raise ConnectionError("Ollama unreachable")
+
+
+class StreamingMockTransport:
+    """Transport mocke retournant un stream NDJSON (stream=True)."""
+
+    CHUNKS = [
+        b'{"model":"llama3","response":"Bonjour","done":false}',
+        b'{"model":"llama3","response":" EVA","done":false}',
+        b'{"model":"llama3","response":"","done":true}',
+    ]
+
+    class _MockStreamResp:
+        def __init__(self, chunks):
+            self._chunks = chunks
+
+        def iter_lines(self):
+            return iter(self._chunks)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def post(self, url, json, headers, timeout, stream=False):
+        if stream:
+            return self._MockStreamResp(self.CHUNKS)
+        return {"response": "Bonjour EVA !"}
+
+
+class EmptyStreamTransport:
+    """Transport mocke retournant un stream sans tokens."""
+
+    class _MockStreamResp:
+        def iter_lines(self):
+            return iter([b'{"model":"llama3","response":"","done":true}'])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def post(self, url, json, headers, timeout, stream=False):
+        if stream:
+            return self._MockStreamResp()
+        return {"response": ""}
 
 
 # --- Fixtures ---
@@ -225,3 +272,60 @@ def test_messages_to_prompt_ignores_unknown_role(ollama):
     # Le rôle tool est ignoré silencieusement
     assert "User: Suite" in prompt
     assert "Assistant:" in prompt
+
+
+# --- Tests stream() — Phase 5(A) ---
+
+
+def test_stream_basic(config, event_bus):
+    """stream() yielde les tokens NDJSON depuis le transport."""
+    provider = OllamaProvider(config, event_bus, transport=StreamingMockTransport())
+    provider.start()
+
+    messages = [{"role": "user", "content": "Bonjour"}]
+    tokens = list(provider.stream(messages))
+
+    provider.stop()
+
+    assert tokens == ["Bonjour", " EVA"]
+    assert "".join(tokens) == "Bonjour EVA"
+
+
+def test_stream_requires_started(config, event_bus):
+    """stream() leve RuntimeError si non demarre."""
+    provider = OllamaProvider(config, event_bus, transport=StreamingMockTransport())
+
+    with pytest.raises(RuntimeError, match="not running"):
+        list(provider.stream([{"role": "user", "content": "test"}]))
+
+
+def test_stream_empty_raises(config, event_bus):
+    """stream() leve ValueError si reponse vide (aucun token recu)."""
+    provider = OllamaProvider(config, event_bus, transport=EmptyStreamTransport())
+    provider.start()
+
+    with pytest.raises(ValueError):
+        list(provider.stream([{"role": "user", "content": "test"}]))
+
+    provider.stop()
+
+
+def test_llm_client_stream_not_implemented(config, event_bus):
+    """LLMClient.stream() leve NotImplementedError par defaut."""
+    from eva.llm.llm_client import LLMClient
+    import abc
+
+    # Creer une sous-classe concrete minimale
+    class MinimalProvider(LLMClient):
+        def _do_complete(self, messages, model, max_tokens, temperature, tools=None):
+            return "ok"
+        def _do_start(self): pass
+        def _do_stop(self): pass
+
+    provider = MinimalProvider(config, event_bus)
+    provider.start()
+
+    with pytest.raises(NotImplementedError):
+        list(provider.stream([{"role": "user", "content": "test"}]))
+
+    provider.stop()

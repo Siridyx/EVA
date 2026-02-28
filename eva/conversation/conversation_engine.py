@@ -8,7 +8,7 @@ Composant responsable de :
 - Détecter et exécuter tool calls (R-020)
 """
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Generator, TYPE_CHECKING
 from eva.core.eva_component import EvaComponent
 
 if TYPE_CHECKING:
@@ -238,6 +238,63 @@ class ConversationEngine(EvaComponent):
                 "error": str(e)
             })
             raise ValueError(f"Conversation error: {e}")
+
+    def respond_stream(
+        self, user_message: str, profile: str = "default"
+    ) -> Generator[str, None, None]:
+        """
+        Stream les tokens de la reponse (sans tool calling — Phase 5A).
+
+        Workflow identique a respond() etapes 1-4, puis stream LLM token par token.
+        La reponse complete est persistee en memoire apres tous les tokens.
+
+        Args:
+            user_message: Message utilisateur
+            profile: Profil LLM (dev/default)
+
+        Yields:
+            Tokens partiels de la reponse.
+        """
+        if not self.is_running:
+            raise RuntimeError(f"{self.name} not started")
+
+        # 1. Persister message user
+        self._memory.add_message("user", user_message)
+
+        # 2. Contexte
+        context = self._memory.get_context()
+
+        # 3. Render prompt systeme (meme appel que respond())
+        tools_list = self._build_tools_list()
+        system_prompt = self._prompt.render(
+            "system",
+            strict=False,
+            tone=self.get_config("prompt.defaults.tone", "professionnel"),
+            expertise=self.get_config("prompt.defaults.expertise", "assistant general"),
+            tools_list=tools_list,
+        )
+
+        # 4. Construire messages pour LLM
+        messages = [{"role": "system", "content": system_prompt}]
+        for msg in context:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+
+        # 5. Stream depuis LLM (avec fallback si streaming non supporte)
+        full_tokens: List[str] = []
+        try:
+            for token in self._llm.stream(messages, profile=profile):
+                full_tokens.append(token)
+                yield token
+        except NotImplementedError:
+            # Fallback : complete() si provider sans streaming
+            reply = self._llm.complete(messages, profile=profile)
+            full_tokens = [reply]
+            yield reply
+
+        # 6. Persister reponse complete
+        full_response = "".join(full_tokens)
+        if full_response:
+            self._memory.add_message("assistant", full_response)
 
     def _detect_tool_call(self, llm_response: str) -> Optional[Dict[str, Any]]:
         """

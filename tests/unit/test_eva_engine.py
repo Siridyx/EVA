@@ -299,9 +299,52 @@ def test_engine_process_without_conversation_engine(config, event_bus):
     """process() retourne fallback si ConversationEngine absent."""
     engine = EVAEngine(config, event_bus)
     engine.start()
-    
+
     reply = engine.process("Test")
-    
+
     assert "not configured" in reply
-    
+
     engine.stop()
+
+
+# --- Tests process_stream() — Phase 5(A) ---
+
+
+def test_process_stream_not_running(config, event_bus):
+    """process_stream() leve RuntimeError si moteur non demarre."""
+    engine = EVAEngine(config, event_bus)
+
+    with pytest.raises(RuntimeError, match="not running"):
+        list(engine.process_stream("test"))
+
+
+def test_process_stream_without_conversation_engine(config, event_bus):
+    """process_stream() yielde fallback si ConversationEngine absent."""
+    engine = EVAEngine(config, event_bus)
+    engine.start()
+
+    tokens = list(engine.process_stream("Test"))
+
+    engine.stop()
+
+    assert len(tokens) == 1
+    assert "not configured" in tokens[0]
+
+
+def test_process_stream_delegates_to_conversation_engine(config, event_bus):
+    """process_stream() delegue respond_stream() a ConversationEngine."""
+    from unittest.mock import MagicMock
+
+    engine = EVAEngine(config, event_bus)
+    engine.start()
+
+    mock_conv = MagicMock()
+    mock_conv.respond_stream.return_value = iter(["Bonjour", " EVA"])
+    engine.set_conversation_engine(mock_conv)
+
+    tokens = list(engine.process_stream("test"))
+
+    engine.stop()
+
+    assert tokens == ["Bonjour", " EVA"]
+    mock_conv.respond_stream.assert_called_once_with("test")

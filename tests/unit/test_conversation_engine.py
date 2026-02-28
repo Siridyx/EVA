@@ -5,6 +5,7 @@ from eva.conversation.conversation_engine import ConversationEngine
 from eva.memory.memory_manager import MemoryManager
 from eva.prompt.prompt_manager import PromptManager
 from eva.llm.providers.openai_provider import OpenAIProvider
+from eva.llm.providers.ollama_provider import OllamaProvider
 from eva.core.config_manager import ConfigManager
 from eva.core.event_bus import EventBus
 
@@ -888,4 +889,72 @@ def test_respond_events_contain_no_secrets(config, event_bus, clean_memory, prom
     assert "sk-" not in all_text  # OpenAI key pattern
     assert "API" not in all_text or "OPENAI_API_KEY" not in all_text
     
-    conv.stop()   
+    conv.stop()
+
+
+# --- Tests respond_stream() — Phase 5(A) ---
+
+
+class _StreamingOllamaTransport:
+    """Transport mock Ollama pour tests de streaming."""
+
+    CHUNKS = [
+        b'{"model":"llama3","response":"Bonjour","done":false}',
+        b'{"model":"llama3","response":" test","done":false}',
+        b'{"model":"llama3","response":"","done":true}',
+    ]
+
+    class _Resp:
+        def __init__(self, chunks):
+            self._chunks = chunks
+
+        def iter_lines(self):
+            return iter(self._chunks)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def post(self, url, json, headers, timeout, stream=False):
+        if stream:
+            return self._Resp(self.CHUNKS)
+        return {"response": "Bonjour test"}
+
+
+def test_respond_stream_basic(config, event_bus, clean_memory, prompt):
+    """respond_stream() yielde les tokens et persiste la reponse complete."""
+    llm = OllamaProvider(config, event_bus, transport=_StreamingOllamaTransport())
+    llm.start()
+    conv = ConversationEngine(config, event_bus, clean_memory, prompt, llm)
+    conv.start()
+
+    tokens = list(conv.respond_stream("Bonjour"))
+
+    conv.stop()
+    llm.stop()
+
+    assert tokens == ["Bonjour", " test"]
+    assert "".join(tokens) == "Bonjour test"
+
+    # La reponse doit etre persistee en memoire
+    context = clean_memory.get_context()
+    roles = [m["role"] for m in context]
+    assert "user" in roles
+    assert "assistant" in roles
+
+
+def test_respond_stream_fallback_not_implemented(config, event_bus, clean_memory, prompt, llm):
+    """respond_stream() tombe sur complete() si provider sans streaming (NotImplementedError)."""
+    # OpenAIProvider.stream() leve NotImplementedError -> fallback
+    conv = ConversationEngine(config, event_bus, clean_memory, prompt, llm)
+    conv.start()
+
+    tokens = list(conv.respond_stream("Bonjour"))
+
+    conv.stop()
+
+    # Le fallback yielde la reponse complete du mock OpenAI
+    assert len(tokens) == 1
+    assert tokens[0] == "Mock response"

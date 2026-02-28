@@ -20,7 +20,7 @@ Standards :
 - Tous les événements documentés
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Generator
 
 from eva.core.eva_component import EvaComponent
 from eva.core.config_manager import ConfigManager
@@ -265,8 +265,30 @@ class EVAEngine(EvaComponent):
                 "Veuillez réessayer dans quelques instants."
             )
     
+    def process_stream(self, user_input: str) -> Generator[str, None, None]:
+        """
+        Traite un message en streamant les tokens (sans tool calling).
+
+        Args:
+            user_input: Message utilisateur
+
+        Yields:
+            Tokens partiels de la reponse.
+
+        Raises:
+            RuntimeError: Si moteur pas demarre.
+        """
+        if not self.is_running:
+            raise RuntimeError("EVAEngine not running. Call start() first.")
+
+        if not hasattr(self, "_conversation_engine") or self._conversation_engine is None:
+            yield "ConversationEngine not configured."
+            return
+
+        yield from self._conversation_engine.respond_stream(user_input)
+
     # --- Introspection ---
-    
+
     @property
     def pipeline_mode(self) -> str:
         """Mode du pipeline (sequential/parallel)."""

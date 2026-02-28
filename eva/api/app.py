@@ -656,8 +656,7 @@ async def chat_stream(
     event: error  → {"message": "..."}      (fin de stream)
     ```
 
-    **NOTE :** FAKE STREAM Phase 4(C) — engine.process() bloquant → split par mots +
-    délai simulé 40ms/mot. Phase 5 branchera le streaming natif OllamaProvider.
+    Streaming natif OllamaProvider (Phase 5A) — tokens Ollama NDJSON en temps reel.
     """
     # --- Auth inline (supporte query param pour EventSource navigateur) ---
     if _state.key_manager is None:
@@ -698,37 +697,51 @@ async def chat_stream(
 
     async def _event_generator() -> AsyncGenerator[str, None]:
         """
-        Générateur SSE — FAKE STREAM Phase 4(C).
+        Generateur SSE — streaming natif OllamaProvider (Phase 5A).
 
-        Appelle engine.process() (synchrone) via asyncio.to_thread,
-        puis simule le streaming en découpant la réponse mot par mot.
-        TODO Phase 5 : remplacer par streaming natif OllamaProvider.
+        Bridge sync generator (process_stream) -> async SSE via asyncio.Queue.
+        Protocole : event:meta -> event:token* -> event:done | event:error
         """
         conv_id = conversation_id or str(uuid.uuid4())
         t0 = time.monotonic()
 
-        # event: meta — conversation_id + provider
         yield (
             f"event: meta\n"
             f"data: {json.dumps({'conversation_id': conv_id, 'provider': 'ollama'})}\n\n"
         )
 
+        queue: asyncio.Queue = asyncio.Queue()
+        error_list: list = []
+        loop = asyncio.get_event_loop()
+
+        def _run_stream() -> None:
+            try:
+                for token in _state.engine.process_stream(message):  # type: ignore[union-attr]
+                    if token:
+                        loop.call_soon_threadsafe(queue.put_nowait, token)
+            except Exception as exc:
+                # F-05 securite : ne pas exposer str(exc) dans la reponse
+                error_list.append(exc)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel fin
+
+        stream_task = asyncio.create_task(asyncio.to_thread(_run_stream))
+
         try:
-            response_text: str = await asyncio.to_thread(
-                _state.engine.process,  # type: ignore[union-attr]
-                message,
-            )
+            while True:
+                token = await queue.get()
+                if token is None:
+                    break
+                yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
         except Exception:
-            # F-05 audit sécurité R-043 : message générique — pas de str(exc).
             yield f"event: error\ndata: {json.dumps({'message': 'Erreur lors du traitement.'})}\n\n"
             return
+        finally:
+            await stream_task
 
-        # FAKE STREAM : découpage mot par mot, ~25 "tokens"/sec simulés
-        words = response_text.split(" ")
-        for i, word in enumerate(words):
-            chunk = word if i == 0 else f" {word}"
-            yield f"event: token\ndata: {json.dumps({'text': chunk})}\n\n"
-            await asyncio.sleep(0.04)
+        if error_list:
+            yield f"event: error\ndata: {json.dumps({'message': 'Erreur lors du traitement.'})}\n\n"
+            return
 
         latency_ms = int((time.monotonic() - t0) * 1000)
         yield f"event: done\ndata: {json.dumps({'latency_ms': latency_ms, 'ok': True})}\n\n"

@@ -20,7 +20,7 @@ Standards :
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 import time
 import os
 
@@ -112,6 +112,18 @@ class LLMClient(EvaComponent, ABC):
             Cette méthode est appelée par complete() avec retry logic.
         """
         pass
+
+    def stream(
+        self,
+        messages: List[Dict[str, str]],
+        profile: str = "default",
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+    ) -> Generator[str, None, None]:
+        """Stream les tokens. Lever NotImplementedError si non supporte par le provider."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} ne supporte pas le streaming."
+        )
 
     # --- Configuration dynamique (test mode) ---
     

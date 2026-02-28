@@ -8,6 +8,16 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 5(A) — Streaming Natif Ollama (R-050)** :
+  - `eva/llm/llm_client.py` : ajout `stream()` par defaut (leve `NotImplementedError`) — interface streaming pour tous les providers
+  - `eva/llm/providers/ollama_provider.py` : ajout `stream()` — streaming NDJSON natif (`stream: true`), bridge transport mock/production
+  - `eva/conversation/conversation_engine.py` : ajout `respond_stream()` — memory + prompt + stream LLM + save memoire apres reception complete
+  - `eva/core/eva_engine.py` : ajout `process_stream()` — delegation a `respond_stream()`
+  - `eva/api/app.py` : remplacement FAKE STREAM par streaming natif — pattern `asyncio.Queue` + `asyncio.to_thread` (bridge sync -> async SSE)
+  - **10 nouveaux tests** : `StreamingMockTransport`, `test_stream_basic`, `test_stream_empty_raises`, `test_llm_client_stream_not_implemented`, `test_respond_stream_basic`, `test_respond_stream_fallback`, `test_process_stream_*`, `test_stream_real_tokens`
+  - SSE protocol inchange : `event:meta` -> `event:token*` -> `event:done` | `event:error`
+  - **525 tests passent** (+10 vs 515), 0 regression — R-031 LOCKED inchange
+
 - **Phase 4(G) — Profiling Performance (R-044)** :
   - `tools/bench_api.py` (nouveau) : benchmark black-box API — p50/p95/max pour `/health`, `/status`, `/chat`, `/chat/stream` TTFT
   - `tools/profile_engine.py` (nouveau) : profiling cProfile interne — pipeline EVA avec mock LLM (sans Ollama)

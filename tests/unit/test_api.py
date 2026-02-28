@@ -98,7 +98,8 @@ def mock_engine():
             "conversation": True,
         },
     }
-    engine.process.return_value = "Réponse de test EVA."
+    engine.process.return_value = "Reponse de test EVA."
+    engine.process_stream.return_value = ["Reponse", " de test EVA."]
     return engine
 
 
@@ -360,6 +361,20 @@ def test_chat_exception_no_detail_leak(client, mock_engine, mock_key_manager):
 
 
 @requires_fastapi
+def test_stream_real_tokens(client, mock_engine, mock_key_manager):
+    """GET /chat/stream : les tokens de process_stream apparaissent dans le SSE."""
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    r = client.get(
+        "/chat/stream",
+        params={"message": "test", "api_key": TEST_API_KEY},
+    )
+    assert r.status_code == 200
+    assert "Reponse" in r.text
+    assert "test EVA" in r.text
+
+
+@requires_fastapi
 def test_stream_exception_no_detail_leak(client, mock_engine, mock_key_manager):
     """
     GET /chat/stream : exception dans engine.process → event:error sans détail interne.
@@ -368,7 +383,7 @@ def test_stream_exception_no_detail_leak(client, mock_engine, mock_key_manager):
     """
     api_module._state.engine = mock_engine
     api_module._state.key_manager = mock_key_manager
-    api_module._state.engine.process.side_effect = RuntimeError(
+    api_module._state.engine.process_stream.side_effect = RuntimeError(
         "Sensitive internal info: /home/user/.secrets"
     )
     r = client.get(
