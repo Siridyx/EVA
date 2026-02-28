@@ -2,9 +2,9 @@
 
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
-Phase actuelle : Phase 3 — Interface Utilisateur (en cours)
-Statut global : Phase 2 ✅ — Phase 3 ✅ COMPLÈTE (R-033 R-030 R-031 R-032)
-Dernière mise à jour : 2026-02-27
+Phase actuelle : Phase 4 — Qualité & Production (en cours)
+Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅
+Dernière mise à jour : 2026-02-28
 
 ### 🎯 Objectif du Journal
 
@@ -804,4 +804,51 @@ Suite au hardening appliqué après validation initiale :
 - Version : 0.3.0 (PEP 440)
 - Niveau : PRO
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED)
+### 🔹 Phase 4(B) — Sécurité API REST (2026-02-28)
+
+**Objectif** : rendre `eva --api` production-ready avec authentification + rate limiting.
+
+#### Fichiers créés / modifiés
+
+| Fichier | Action | Description |
+|---|---|---|
+| `eva/api/security.py` | CRÉÉ | `ApiKeyManager` + `RateLimiter` |
+| `eva/api/app.py` | MODIFIÉ | imports, EvaState, _init_eva, dépendances FastAPI, routes, main() |
+| `eva/config.yaml` | MODIFIÉ | `paths.secrets` + section `api` |
+| `eva/cli.py` | MODIFIÉ | flag `--print-api-key` |
+| `tests/unit/test_api.py` | MODIFIÉ | 6 nouveaux tests + 3 existants mis à jour + reset_state étendu |
+
+#### Décisions techniques
+
+**ApiKeyManager** :
+- Clé 256 bits = `secrets.token_hex(32)` = 64 hex chars
+- Persistée dans `eva/data/secrets/api_key.txt` (couvert par `.gitignore` via `eva/data/**`)
+- `chmod 600` tenté (ignoré silencieusement sur Windows)
+- Chargée au démarrage de l'API, affichée dans le terminal avant uvicorn
+
+**RateLimiter** :
+- Fenêtre glissante 60s par IP, in-memory (`collections.deque`)
+- Reset au redémarrage API (acceptable Phase 4 — Redis en Phase 5)
+- Mode dégradé : si non initialisé, pas de limite (API toujours accessible)
+
+**Sécurité non bloquante** :
+- Bloc `try/except` séparé dans `_init_eva()` pour l'init sécurité
+- Erreur → `_state.init_error` + log, mais API démarre quand même
+
+**Auth FastAPI** :
+- `require_api_key` : dépendance `Depends()` sur `/status` et `/chat`
+- Priorité : `Authorization: Bearer <key>` > `X-EVA-Key: <key>` (fallback)
+- `secrets.compare_digest` : protection timing attack (pas d'early exit)
+- `/health` reste public (aucune auth)
+
+#### Validation
+
+```
+pytest tests/unit/test_api.py -v  → 10/10 PASSED
+pytest --tb=short -q              → 501 passed, 2 skipped, 27 xfailed, 4 xpassed (14.48s)
+                                     0 régression
+```
+
+---
+
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE)

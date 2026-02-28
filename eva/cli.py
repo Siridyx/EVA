@@ -2,12 +2,13 @@
 CLI principal pour EVA
 
 Usage:
-    eva                 # Lance REPL interactif
-    eva --tui           # Lance le Terminal UI (Textual)
-    eva --api           # Lance l'API REST JSON (FastAPI — localhost:8000)
-    eva --web           # Lance l'interface web (FastAPI + UI browser — localhost:8000)
-    eva --version       # Affiche version
-    eva --help          # Aide
+    eva                     # Lance REPL interactif
+    eva --tui               # Lance le Terminal UI (Textual)
+    eva --api               # Lance l'API REST JSON (FastAPI — localhost:8000)
+    eva --web               # Lance l'interface web (FastAPI + UI browser — localhost:8000)
+    eva --print-api-key     # Affiche (ou génère) la clé API EVA
+    eva --version           # Affiche version
+    eva --help              # Aide
 """
 
 import sys
@@ -55,7 +56,21 @@ def main():
         help="Lance le Terminal UI (Textual)"
     )
 
+    parser.add_argument(
+        "--print-api-key",
+        action="store_true",
+        help="Affiche (ou génère) la clé API EVA pour l'API REST"
+    )
+
     args = parser.parse_args()
+
+    if args.print_api_key:
+        from eva.api.security import ApiKeyManager
+        from eva.core.config_manager import ConfigManager
+        _cfg = ConfigManager()
+        _km = ApiKeyManager(_cfg.get_path("secrets"))
+        print(_km.load_or_generate())
+        return 0
 
     if args.api:
         from eva.api.app import main as api_main

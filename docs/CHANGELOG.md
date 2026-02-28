@@ -8,6 +8,21 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 4(B) — Sécurité API REST** :
+  - `eva/api/security.py` (nouveau) : `ApiKeyManager` + `RateLimiter`
+    - Clé API 256 bits (`secrets.token_hex(32)`) — générée au 1er lancement dans `eva/data/secrets/api_key.txt`
+    - `secrets.compare_digest` — protection timing attack
+    - `RateLimiter` : fenêtre glissante 60s, par IP, in-memory (reset au redémarrage)
+  - `GET /health` reste **public** (aucune auth requise)
+  - `GET /status` : désormais protégé — `401` sans clé valide
+  - `POST /chat` : protégé + rate limited — `401` sans clé, `429` si > 60 req/min
+  - Auth acceptée : `Authorization: Bearer <key>` (principal) + `X-EVA-Key: <key>` (fallback)
+  - `eva --print-api-key` : nouvelle commande CLI — affiche (ou génère) la clé
+  - `eva --api` : affiche la clé dans le terminal avant le démarrage uvicorn
+  - `api.rate_limit_per_min: 60` et `paths.secrets` ajoutés dans `config.yaml`
+  - Sécurité non bloquante : erreur d'init → mode dégradé, API toujours accessible
+  - 10 tests API (4 existants mis à jour + 6 nouveaux) — 501 passent au total
+
 - **Packaging hardening Phase 4(A)** :
   - `requires-python = ">=3.9,<3.13"` — compat validée 3.9 (baseline) + 3.11 (LTS)
   - Optional extras séparés : `[api]`, `[tui]`, `[rag]`, `[all]`, `[dev]` — core minimal sans deps lourdes

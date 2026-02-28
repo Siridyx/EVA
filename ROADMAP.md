@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | 🔄 WIP  | 50% (4/8)   | 495   | ~15s   |
+| Phase 4   | 🔄 WIP  | 56% (5/9)   | 501   | ~15s   |
 
-**Total items complétés** : 33/38 (87%)
+**Total items complétés** : 34/39 (87%)
 
 ---
 
@@ -372,17 +372,34 @@ Objectif : projet publiable.
   - Fichier `LICENSE` : Copyright Siridyx, All rights reserved
   - `license = {file = "LICENSE"}` dans `pyproject.toml`
 
-### Phase 4(B/C) — À venir
+### Phase 4(B) — Sécurité API ✅ VALIDÉ (2026-02-28)
 
-- [ ] [P4][M][todo] R-042 — Documentation API (deps: R-031)
+- [x] [P4][M][done] R-042b — API Key Auth + Rate Limiting (deps: R-031) ✅ VALIDÉ
+  - `eva/api/security.py` : `ApiKeyManager` (clé 256 bits, `secrets.token_hex`, chmod 600) + `RateLimiter` (fenêtre glissante 60s, in-memory, par IP)
+  - `GET /health` : **public** (200 sans auth)
+  - `GET /status` : protégé — 401 sans clé valide
+  - `POST /chat` : protégé + rate limited — 401 sans clé, 429 si > 60 req/min
+  - Auth : `Authorization: Bearer <key>` (principal) + `X-EVA-Key: <key>` (fallback)
+  - Clé générée au 1er lancement → `eva/data/secrets/api_key.txt` (couvert `.gitignore`)
+  - `eva --print-api-key` : affiche (ou génère) la clé sans démarrer le serveur
+  - Affichage clé dans `eva --api` avant uvicorn (lisible dans terminal)
+  - Sécurité non bloquante : erreur init → mode dégradé, API toujours accessible
+  - `secrets.compare_digest` : protection timing attack
+  - `api.rate_limit_per_min: 60` dans `config.yaml`
+  - 6 nouveaux tests (health public, status 401, chat 401, chat 401 invalide, chat 200 valide, 429 rate limit)
+  - Total tests API : 10 (4 existants mis à jour + 6 nouveaux)
+
+### Phase 4(C) et suivantes — À venir
+
+- [ ] [P4][M][todo] R-042 — Documentation API complète (deps: R-031)
 - [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-041)
 - [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
 - [ ] [P4][M][todo] R-045 — Test Hardening avancé (deps: R-018)
   - Network guard (bloquer socket si pas mocké) → DEBT-004
   - Pytest markers (unit vs integration) → DEBT-005
 
-**Statut** : 4/8 items (50%) — Phase 4(A) HARDENED ✅
-**Tests** : 495 passed (~15s)
+**Statut** : 5/9 items (56%) — Phase 4(A) + 4(B) ✅
+**Tests** : 501 passed (~15s)
 **Dépendances** : Toutes phases précédentes
 
 ---
@@ -391,13 +408,13 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur    | Objectif          |
 | ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 495       | 200+ (P2 complet) |
+| **Tests totaux**   | 501       | 200+ (P2 complet) |
 | **Durée tests**    | ~15s      | <30s              |
 | **Coverage**       | ~95%      | > 90%             |
 | **Dettes P0**      | 0         | 0                 |
 | **Dettes P1**      | 0         | 0                 |
 | **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P4 (50%)  | P4 (100%)         |
+| **Phase actuelle** | P4 (56%)  | P4 (100%)         |
 
 ---
 
@@ -437,11 +454,10 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 4(A) HARDENED ✅
+**Immédiat** : Phase 4(A) + 4(B) ✅
 
-**Court terme** : Phase 4(B) ou 4(C)
+**Court terme** : Phase 4(C)
 
-- **(B) Sécurité API** : API key + rate limiting (`eva --api` production-ready)
 - **(C) Streaming SSE** : `POST /chat/stream` + UI token-by-token (TUI + Web)
 
 **Long terme** : Phase 4 complète → 0.4.0
@@ -452,7 +468,7 @@ Objectif : projet publiable.
 
 ---
 
-**Dernière modification** : 2026-02-26 (AgentBase R-021 codé + 43 tests)
+**Dernière modification** : 2026-02-28 (Phase 4(B) — API key auth + rate limiting)
 
 ## 🏗️ Principes Fondamentaux
 

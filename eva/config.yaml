@@ -13,6 +13,7 @@ paths:
   cache: "data/cache"
   prompts: "data/prompts"
   dumps: "data/dumps"
+  secrets: "eva/data/secrets"  # Clé API — couvert par eva/data/** (.gitignore)
 
 # Logging (détails en R-009)
 logging:
@@ -70,6 +71,10 @@ prompt:
   defaults:
     tone: "professionnel"
     expertise: "assistant général"
+
+# API REST (R-031, Phase 4(B))
+api:
+  rate_limit_per_min: 60  # Requêtes max par IP par minute (/chat + /status)
 
 # RAG / Vector Memory (R-024)
 rag:
