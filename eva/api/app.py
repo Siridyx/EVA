@@ -425,7 +425,37 @@ async def chat(request: ChatRequest) -> ChatResponse:
         )
 
 
-@app.get("/chat/stream", tags=["Chat"])
+@app.get(
+    "/chat/stream",
+    tags=["Chat"],
+    summary="Streaming SSE (token par token)",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": (
+                "Stream SSE text/event-stream.\n\n"
+                "Événements émis :\n"
+                "- `event: meta` — `{conversation_id, provider}`\n"
+                "- `event: token` — `{text}` (répété N fois)\n"
+                "- `event: done` — `{latency_ms, ok: true}`\n"
+                "- `event: error` — `{message}` (fin de stream)"
+            ),
+            "content": {
+                "text/event-stream": {
+                    "schema": {"type": "string"},
+                    "example": (
+                        "event: meta\ndata: {\"conversation_id\": \"uuid\", \"provider\": \"ollama\"}\n\n"
+                        "event: token\ndata: {\"text\": \"Bonjour\"}\n\n"
+                        "event: done\ndata: {\"latency_ms\": 420, \"ok\": true}\n\n"
+                    ),
+                }
+            },
+        },
+        401: {"description": "Clé API manquante ou invalide."},
+        429: {"description": "Trop de requêtes — limite 60 req/min dépassée."},
+        503: {"description": "Moteur EVA non démarré ou sécurité non initialisée."},
+    },
+)
 async def chat_stream(
     request: Request,
     message: str = Query(..., min_length=1, max_length=2000,
