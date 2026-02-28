@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | 🔄 WIP  | 70% (7/10)  | 511   | ~8min  |
+| Phase 4   | 🔄 WIP  | 80% (8/10)  | 515   | ~8min  |
 
-**Total items complétés** : 36/40 (90%)
+**Total items complétés** : 37/40 (92%)
 
 ---
 
@@ -412,14 +412,22 @@ Objectif : projet publiable.
   - DEBT-004 ✅ (network guard) + DEBT-005 ✅ (markers)
   - Commandes : `pytest -m unit` | `pytest -m integration` | `pytest`
 
-### Phase 4(E) et suivantes — À venir
+### Phase 4(E) — Audit sécurité ✅ VALIDÉ (2026-02-28)
+
+- [x] [P4][S][done] R-043 — Audit sécurité (deps: R-041) ✅ VALIDÉ
+  - `docs/SECURITY_AUDIT.md` : threat model + 14 findings + verdict 9/10
+  - F-04 FIXED : `/chat` — exception leak supprimé (detail générique)
+  - F-05 FIXED : `/chat/stream` — `str(exc)` → message générique dans SSE error
+  - 4 tests sécurité : Bearer vide, api_key vide, no-leak /chat, no-leak SSE
+  - Vérifications OK documentées : XSS, CORS, binding, timing-safe, path traversal
+
+### Phase 4(F) et suivantes — À venir
 
 - [ ] [P4][M][todo] R-042 — Documentation API complète (deps: R-031)
-- [ ] [P4][S][todo] R-043 — Audit sécurité (deps: R-041)
 - [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
 
-**Statut** : 7/10 items (70%) — Phase 4(A) + 4(B) + 4(C) + 4(D) ✅
-**Tests** : 511 passed (~8min)
+**Statut** : 8/10 items (80%) — Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) ✅
+**Tests** : 515 passed (~8min)
 **Dépendances** : Toutes phases précédentes
 
 ---
@@ -474,12 +482,12 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 4(A) + 4(B) + 4(C) + 4(D) ✅
+**Immédiat** : Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) ✅
 
-**Court terme** : Phase 4(E)
+**Court terme** : Phase 4(F)
 
-- **(E) Audit sécurité** (R-043) — surfaces d'attaque API
-- **(E) Documentation API complète** (R-042)
+- **(F) Documentation API complète** (R-042)
+- **(F) Profiling performance** (R-044)
 
 **Long terme** : Phase 4 complète → 0.4.0
 
@@ -489,7 +497,7 @@ Objectif : projet publiable.
 
 ---
 
-**Dernière modification** : 2026-02-28 (Phase 4(D) — Test Hardening R-045)
+**Dernière modification** : 2026-02-28 (Phase 4(E) — Audit sécurité R-043)
 
 ## 🏗️ Principes Fondamentaux
 

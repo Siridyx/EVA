@@ -8,6 +8,13 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 4(E) — Audit sécurité (R-043)** :
+  - `docs/SECURITY_AUDIT.md` (nouveau) : threat model + 14 findings + verdict global (9/10)
+  - **F-04 FIXED** : `/chat` — exception interne plus jamais exposée dans `detail` HTTP 500
+  - **F-05 FIXED** : `/chat/stream` — `str(exc)` dans `event: error` remplacé par message générique
+  - 4 nouveaux tests sécurité : `Bearer <espace>` → 401 | `?api_key=` (vide) → 401 | no-leak /chat → 500 générique | no-leak SSE → event:error générique
+  - Vérifications OK documentées : XSS impossible (textContent), CORS absent, binding 127.0.0.1 strict, `secrets.compare_digest`, path traversal impossible, `conversation_id` via `json.dumps`
+
 - **Phase 4(D) — Test Hardening (R-045)** :
   - `tests/conftest.py` (nouveau) : network guard session-scoped (autouse) — bloque toute connexion réseau externe
   - Network guard via `socket.getaddrinfo` : point bas niveau, couvre requests/httpx/urllib/asyncio

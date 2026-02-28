@@ -289,3 +289,96 @@ def test_stream_valid_auth_200(client, mock_engine, mock_key_manager):
     assert "event: meta" in r.text
     assert "event: token" in r.text
     assert "event: done" in r.text
+
+
+# ---------------------------------------------------------------------------
+# Tests Phase 4(E) — Audit sécurité R-043
+# ---------------------------------------------------------------------------
+
+
+@requires_fastapi
+def test_chat_bearer_empty_key_401(client, mock_engine, mock_key_manager):
+    """
+    Authorization: Bearer <espace> → 401.
+
+    F-01 : "Bearer " (espace après Bearer, pas de clé) → extrait "" →
+    verify("") = False → 401. Pas de bypass.
+    """
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    r = client.post(
+        "/chat",
+        json={"message": "test"},
+        headers={"Authorization": "Bearer "},
+    )
+    assert r.status_code == 401
+
+
+@requires_fastapi
+def test_stream_api_key_empty_string_401(client, mock_engine, mock_key_manager):
+    """
+    GET /chat/stream ?api_key= (chaîne vide) → 401.
+
+    F-01 : query param vide → falsy en Python → provided=None → 401.
+    """
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    r = client.get(
+        "/chat/stream",
+        params={"message": "test", "api_key": ""},
+    )
+    assert r.status_code == 401
+
+
+@requires_fastapi
+def test_chat_exception_no_detail_leak(client, mock_engine, mock_key_manager):
+    """
+    POST /chat : exception dans engine.process → 500 sans détail interne.
+
+    F-04 : le message d'erreur HTTP 500 doit être générique —
+    aucune information interne (chemin, modèle, message réseau) ne doit fuiter.
+    """
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    # Simuler une exception dans engine.process
+    api_module._state.engine.process.side_effect = RuntimeError(
+        "Internal path /secret/data and model ollama:3.2"
+    )
+    r = client.post(
+        "/chat",
+        json={"message": "test"},
+        headers=VALID_HEADERS,
+    )
+    assert r.status_code == 500
+    body = r.json()
+    # Le message d'erreur interne ne doit PAS figurer dans la réponse
+    assert "Internal path" not in body.get("detail", "")
+    assert "/secret" not in body.get("detail", "")
+    assert "ollama:3.2" not in body.get("detail", "")
+    # Un message générique doit être présent
+    assert body.get("detail") == "Erreur lors du traitement."
+
+
+@requires_fastapi
+def test_stream_exception_no_detail_leak(client, mock_engine, mock_key_manager):
+    """
+    GET /chat/stream : exception dans engine.process → event:error sans détail interne.
+
+    F-05 : le champ "message" de l'événement SSE error doit être générique.
+    """
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.engine.process.side_effect = RuntimeError(
+        "Sensitive internal info: /home/user/.secrets"
+    )
+    r = client.get(
+        "/chat/stream",
+        params={"message": "test", "api_key": TEST_API_KEY},
+    )
+    assert r.status_code == 200  # SSE retourne 200 même en cas d'erreur interne
+    # L'info interne ne doit pas figurer dans le stream SSE
+    assert "Sensitive internal info" not in r.text
+    assert "/home/user" not in r.text
+    # L'événement error doit être émis avec un message générique
+    assert "event: error" in r.text
+    assert "Erreur lors du traitement" in r.text

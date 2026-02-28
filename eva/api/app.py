@@ -418,10 +418,13 @@ async def chat(request: ChatRequest) -> ChatResponse:
             conversation_id=conv_id,
             metadata=ChatMetadata(provider="ollama", latency_ms=latency_ms),
         )
-    except Exception as exc:
+    except Exception:
+        # F-04 audit sécurité R-043 : pas de detail=str(exc) — évite le leak
+        # d'informations internes (chemin fichier, nom modèle, message réseau)
+        # dans la réponse HTTP. L'exception est journalisée en interne.
         raise HTTPException(
             status_code=500,
-            detail=f"Erreur lors du traitement : {exc}",
+            detail="Erreur lors du traitement.",
         )
 
 
@@ -549,8 +552,9 @@ async def chat_stream(
                 _state.engine.process,  # type: ignore[union-attr]
                 message,
             )
-        except Exception as exc:
-            yield f"event: error\ndata: {json.dumps({'message': str(exc)})}\n\n"
+        except Exception:
+            # F-05 audit sécurité R-043 : message générique — pas de str(exc).
+            yield f"event: error\ndata: {json.dumps({'message': 'Erreur lors du traitement.'})}\n\n"
             return
 
         # FAKE STREAM : découpage mot par mot, ~25 "tokens"/sec simulés

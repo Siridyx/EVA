@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 4 — Qualité & Production (en cours)
-Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅
+Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅ — Phase 4(E) ✅
 Dernière mise à jour : 2026-02-28
 
 ### 🎯 Objectif du Journal
@@ -952,4 +952,51 @@ pytest --tb=short -q              → 504 passed, 2 skipped, 27 xfailed, 4 xpass
 
 ---
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE)
+---
+
+### 🔹 Phase 4(E) — Audit Sécurité R-043 (2026-02-28)
+
+**Objectif** : auditer toutes les surfaces de l'API + Web UI + secrets, appliquer les micro-fix identifiés.
+
+#### Findings et résolutions
+
+**F-04 — Exception leak `/chat` (FIXED)**
+- Cause : `detail=f"Erreur lors du traitement : {exc}"` — `str(exc)` peut exposer des chemins de fichiers, noms de modèles, messages réseau internes dans la réponse HTTP 500.
+- Fix : `except Exception:` + `detail="Erreur lors du traitement."` (message générique fixe).
+
+**F-05 — Exception leak `/chat/stream` (FIXED)**
+- Cause : `json.dumps({'message': str(exc)})` dans `event: error` — même problème que F-04 via SSE.
+- Fix : message générique `'Erreur lors du traitement.'` dans tous les `event: error`.
+
+**Vérifications OK (pas de fix nécessaire)**
+- XSS : `textContent` exclusif dans toute la Web UI — aucun `innerHTML`.
+- CORS : aucun middleware CORS — comportement correct pour localhost-only.
+- Binding : `host=127.0.0.1` strict dans `app.py` et `web/app.py`.
+- Timing attack : `secrets.compare_digest` dans `ApiKeyManager.verify()`.
+- Path traversal : `get_path("secrets")` = valeur fixe du YAML packagé.
+- `conversation_id` : passe par `json.dumps` — correctement échappé.
+- Rate limit `"unknown"` : bucket partagé mais non bypassable.
+
+#### Tests ajoutés
+
+4 tests de sécurité dans `test_api.py` (total API : 17 tests) :
+- `test_chat_bearer_empty_key_401` — `Bearer <espace>` → 401
+- `test_stream_api_key_empty_string_401` — `?api_key=` (vide) → 401
+- `test_chat_exception_no_detail_leak` — exception → 500 sans détail interne
+- `test_stream_exception_no_detail_leak` — exception → event:error sans détail interne
+
+#### Métriques
+
+| Commande | Résultat |
+|---|---|
+| `pytest tests/unit/test_api.py` | 17 passed |
+| `pytest` (full) | 515 passed, 0 fail |
+
+#### Verdict
+
+**9/10** — EVA Phase 4 est sécurisée pour usage local (127.0.0.1).
+Seul item retenu : clé dans source HTML — intentionnel et documenté (local-only).
+
+---
+
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE — Phase 4(E) VALIDÉE)
