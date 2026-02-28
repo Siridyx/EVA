@@ -28,9 +28,9 @@ Créer un assistant IA personnel :
 | Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
 | Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
 | Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | 🔄 WIP  | 90% (9/10)  | 515   | ~8min  |
+| Phase 4   | ✅ DONE | 100% (10/10) | 515   | ~8min  |
 
-**Total items complétés** : 38/40 (95%)
+**Total items complétés** : 40/40 (100%)
 
 ---
 
@@ -250,7 +250,7 @@ Objectif : EVA appelle des fonctions, raisonne de façon autonome et retrouve de
   - AgentBase(EvaComponent) : boucle Reason → Act → Observe
   - AgentResult / AgentStep : dataclasses de traçabilité
   - run(goal) : exécution autonome jusqu'à final_answer ou max_steps
-  - _parse_response(), _execute_tool(), _build_tools_description()
+  - \_parse_response(), \_execute_tool(), \_build_tools_description()
   - 43 tests unitaires (lifecycle, run, tool_call, max_steps, parse, execute, events)
 
 **Statut** : 6/6 items (100%) ✅
@@ -429,9 +429,15 @@ Objectif : projet publiable.
   - `docs/API.md` (nouveau) : guide développeur complet — installation, auth, curl examples, SSE, rate limit, non-goals
   - 0 régression — contrat R-031 LOCKED inchangé
 
-### Phase 4(G) — À venir
+### Phase 4(G) — Profiling Performance ✅ VALIDÉ (2026-02-28)
 
-- [ ] [P4][M][todo] R-044 — Profiling performance (deps: R-006, R-020)
+- [x] [P4][M][done] R-044 — Profiling performance (deps: R-006, R-020) ✅ VALIDÉ
+  - `tools/bench_api.py` (nouveau) : bench black-box API — p50/p95/max pour /health, /status, /chat, /chat/stream
+  - `tools/profile_engine.py` (nouveau) : profiling cProfile interne — pipeline EVA avec mock LLM
+  - `docs/PROFILING.md` (nouveau) : rapport complet avec vrais chiffres cProfile + analyse + 3 optimisations
+  - **Opt 1 appliquée** : `memory_manager.py` — JSON compact (separators vs indent=2) → gain 0.3-0.6ms/appel
+  - **Opt 2 appliquée** : `ollama_provider.py` — `requests.Session()` lazy → TCP keepalive, ~1-3ms/appel
+  - Résultats : pipeline CPU = 3.79ms/appel (sans LLM) — `_save_session()` = 96.8% dominant
 
 **Statut** : 9/10 items (90%) — Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) ✅
 **Tests** : 515 passed (~8min)
@@ -441,15 +447,15 @@ Objectif : projet publiable.
 
 ## 📊 Métriques Globales
 
-| Métrique           | Valeur    | Objectif          |
-| ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 504       | 200+ (P2 complet) |
-| **Durée tests**    | ~25s      | <30s              |
-| **Coverage**       | ~95%      | > 90%             |
-| **Dettes P0**      | 0         | 0                 |
-| **Dettes P1**      | 0         | 0                 |
-| **Dettes P2**      | 8         | <10               |
-| **Phase actuelle** | P4 (60%)  | P4 (100%)         |
+| Métrique           | Valeur   | Objectif          |
+| ------------------ | -------- | ----------------- |
+| **Tests totaux**   | 504      | 200+ (P2 complet) |
+| **Durée tests**    | ~25s     | <30s              |
+| **Coverage**       | ~95%     | > 90%             |
+| **Dettes P0**      | 0        | 0                 |
+| **Dettes P1**      | 0        | 0                 |
+| **Dettes P2**      | 8        | <10               |
+| **Phase actuelle** | P4 (60%) | P4 (100%)         |
 
 ---
 
@@ -489,19 +495,19 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Immédiat** : Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) ✅
+**Phase 4 COMPLÈTE** : 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) + 4(G) ✅
 
-**Court terme** : Phase 4(G)
+**Prochain jalon** : version 0.4.0 stable (tag git) + Phase 5 planification
 
-- **(G) Profiling performance** (R-044)
-
-**Long terme** : Phase 4 complète → 0.4.0
-
-- Profiling performance (R-044) — dernier item Phase 4
+**Phase 5 (prévisions)** :
+- Exposition réseau 0.0.0.0 sécurisée (après validation auth)
+- Streaming natif Ollama (remplace FAKE STREAM)
+- HTTPS / TLS pour exposition réseau
+- Rate limit Redis (persistant)
 
 ---
 
-**Dernière modification** : 2026-02-28 (Phase 4(F) — Documentation API R-042)
+**Dernière modification** : 2026-02-28 (Phase 4(G) — Profiling performance R-044 — PHASE 4 COMPLÈTE)
 
 ## 🏗️ Principes Fondamentaux
 
@@ -739,7 +745,7 @@ Eva/                                                                    ✅
 │   │
 │   └── ui/                                                             ✅
 │       ├── __init__.py                                                 ✅
-│       └── terminal_ui.py # R-030 : Point d'émission logs UI          ⏳
+│       └── terminal_ui.py # R-030 : Point d'émission logs UI           ⏳
 │
 ├── eva_assistant.egg-info/ # Généré par pip install -e                 ✅
 │   ├── PKG-INFO                                                        ✅

@@ -3,7 +3,7 @@
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
 Phase actuelle : Phase 4 — Qualité & Production (en cours)
-Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅ — Phase 4(E) ✅ — Phase 4(F) ✅
+Statut global : Phase 3 ✅ — Phase 4(A) ✅ — Phase 4(B) ✅ — Phase 4(C) ✅ — Phase 4(D) ✅ — Phase 4(E) ✅ — Phase 4(F) ✅ — Phase 4(G) ✅
 Dernière mise à jour : 2026-02-28
 
 ### 🎯 Objectif du Journal
@@ -1024,4 +1024,36 @@ Seul item retenu : clé dans source HTML — intentionnel et documenté (local-o
 
 ---
 
-✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE — Phase 4(E) VALIDÉE — Phase 4(F) VALIDÉE)
+---
+
+### 🔹 Phase 4(G) — Profiling Performance R-044 (2026-02-28)
+
+**Objectif** : identifier les goulots d'étranglement réels du pipeline EVA avec mesures reproductibles,
+appliquer 2 micro-optimisations safe, produire un rapport de profiling complet.
+
+**Résultats cProfile (mock LLM, N=100 appels)** :
+
+- Pipeline CPU = 3.79 ms/appel (hors LLM réel)
+- `_save_session()` = 96.8% du temps (3.67 ms/appel) — JSON write + atomic rename
+- `json.dump()` = 50.9% du temps — cible directe de l'opt 1
+- LLM Ollama réel : 100–5000 ms (dominant en production)
+
+**Décisions techniques** :
+
+- Opt 1 (`indent=None`) : compact JSON dans `_save_session()` — impact réel sur le goulot identifié.
+  Aucun test ne vérifie le format indent du fichier session → safe.
+- Opt 2 (Session HTTP) : `requests.Session()` lazy dans `OllamaProvider._do_complete()`.
+  Tests utilisent le transport mock → branche production non touchée → 0 régression garantie.
+- Opt 3 (batch saves) : proposée non appliquée — risque perte données en cas de crash.
+- Scripts dans `tools/` (pas dans `eva/`) : standalone, pas dans le package distribué.
+
+**Métriques** :
+
+- Fichiers modifiés : `eva/memory/memory_manager.py`, `eva/llm/providers/ollama_provider.py`
+- Fichiers créés : `tools/bench_api.py`, `tools/profile_engine.py`, `docs/PROFILING.md`
+- Tests : 515 passent, 0 régression
+- Nouvelles dépendances : aucune
+
+---
+
+✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE — Phase 4(E) VALIDÉE — Phase 4(F) VALIDÉE — Phase 4(G) VALIDÉE)

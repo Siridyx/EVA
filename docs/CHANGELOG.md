@@ -8,6 +8,15 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 4(G) — Profiling Performance (R-044)** :
+  - `tools/bench_api.py` (nouveau) : benchmark black-box API — p50/p95/max pour `/health`, `/status`, `/chat`, `/chat/stream` TTFT
+  - `tools/profile_engine.py` (nouveau) : profiling cProfile interne — pipeline EVA avec mock LLM (sans Ollama)
+  - `docs/PROFILING.md` (nouveau) : rapport complet — chiffres réels cProfile, analyse goulots, optimisations
+  - **Opt 1 appliquée** : `memory_manager.py` — JSON compact (`separators=(',', ':')` vs `indent=2`) — gain 15–30% sur `json.dump()` (~0.3–0.6 ms/appel)
+  - **Opt 2 appliquée** : `ollama_provider.py` — `requests.Session()` lazy-initialized — TCP keepalive réutilisé (~1–3 ms/appel économisés)
+  - **Résultats profiling** : pipeline CPU = 3.79 ms/appel — `_save_session()` = 96.8% du temps (JSON + I/O atomique Windows)
+  - **515 tests passent**, 0 régression — contrat R-031 LOCKED inchangé
+
 - **Phase 4(F) — Documentation API (R-042)** :
   - `eva/api/app.py` : description OpenAPI enrichie (auth table, rate limit, endpoints, "local only" notice), `openapi_tags` System + Chat
   - `/health` : `summary="Healthcheck public"` + `responses={200}` avec exemple

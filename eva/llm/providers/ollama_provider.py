@@ -55,19 +55,28 @@ class OllamaProvider(LLMClient):
             transport: Transport HTTP injectable (pour tests)
         """
         super().__init__(config, event_bus, name or "OllamaProvider", transport)
-        
+
         # Endpoint Ollama
         self._endpoint = self.get_config("llm.ollama.endpoint", "http://localhost:11434")
-    
+        # R-044 perf : Session HTTP réutilisée (TCP keepalive) — lazy init dans _do_complete
+        self._http_session: Optional[Any] = None
+
     def _do_start(self) -> None:
         """Démarre le provider."""
         self.emit("llm_provider_started", {
             "provider": "ollama",
             "endpoint": self._endpoint
         })
-    
+
     def _do_stop(self) -> None:
         """Arrête le provider."""
+        # Fermer la Session HTTP proprement
+        if self._http_session is not None:
+            try:
+                self._http_session.close()
+            except Exception:
+                pass
+            self._http_session = None
         self.emit("llm_provider_stopped", {
             "provider": "ollama"
         })
@@ -122,16 +131,18 @@ class OllamaProvider(LLMClient):
                 timeout=timeout
             )
         else:
-            # Mode production
+            # Mode production — Session réutilisée (R-044 : TCP keepalive)
             import requests
-            
-            response = requests.post(
+            if self._http_session is None:
+                self._http_session = requests.Session()
+
+            response = self._http_session.post(
                 f"{self._endpoint}/api/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=timeout
             )
-            
+
             response.raise_for_status()
             response_data = response.json()
         

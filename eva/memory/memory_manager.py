@@ -225,8 +225,9 @@ class MemoryManager(EvaComponent):
             )
             
             # Écrire dans temp file
+            # R-044 perf: compact JSON (pas d'indent) — fichier interne, pas lu à la main
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+                json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
             
             # Rename atomique (POSIX garantit atomicité)
             # Sur Windows, besoin de supprimer d'abord si existe
