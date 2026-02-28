@@ -102,8 +102,8 @@ def test_prompt_manager_render(config, event_bus, clean_prompts):
     pm = PromptManager(config, event_bus)
     pm.start()
     
-    prompt = pm.render("system", tone="amical", expertise="Python")
-    
+    prompt = pm.render("system", tone="amical", expertise="Python", tools_list="")
+
     assert "amical" in prompt
     assert "Python" in prompt
     assert "{{tone}}" not in prompt
@@ -134,6 +134,7 @@ def test_prompt_manager_render_extra_variables(config, event_bus, clean_prompts)
         "system",
         tone="amical",
         expertise="Python",
+        tools_list="",
         extra="ignored"
     )
     
@@ -199,7 +200,7 @@ def test_prompt_manager_emits_events(config, event_bus, clean_prompts):
     
     pm = PromptManager(config, event_bus)
     pm.start()
-    pm.render("system", tone="test", expertise="test")
+    pm.render("system", tone="test", expertise="test", tools_list="")
     pm.stop()
     
     assert "prompt_manager_started" in events
