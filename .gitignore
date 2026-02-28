@@ -67,6 +67,9 @@ eva/data/**
 *.jpeg
 *.gif
 *.webp
+# Exceptions : assets projet versionnés
+!assets/*.png
+!eva/web/static/*.png
 
 # Secrets
 .env
