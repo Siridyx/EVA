@@ -60,6 +60,9 @@ llm:
 # Memory (détails en R-011)
 memory:
     context_window: 10
+    max_messages: 100
+    summary_threshold: 40   # nb messages avant declenchement resume auto
+    summary_keep_recent: 10 # messages recents conserves apres resume
 
 # Plugins (détails en R-015)
 plugins:

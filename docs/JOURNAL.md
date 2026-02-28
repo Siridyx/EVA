@@ -1057,3 +1057,45 @@ appliquer 2 micro-optimisations safe, produire un rapport de profiling complet.
 ---
 
 ✅ Fin JOURNAL (Phase 3 COMPLÈTE — Phase 4(A) HARDENED — Phase 4(B) VALIDÉE — Phase 4(C) VALIDÉE — Phase 4(D) VALIDÉE — Phase 4(E) VALIDÉE — Phase 4(F) VALIDÉE — Phase 4(G) VALIDÉE)
+
+---
+
+## Phase 5(B) — R-051 Memoire Enrichie
+
+**Objectif** : faire evoluer MemoryManager d'un simple append JSON vers une memoire
+conversationnelle robuste avec resume automatique par LLM, protection contre
+l'explosion de tokens, et limite de contexte configurable.
+
+**Probleme resolu** : au-dela de ~40 messages, le contexte envoye au LLM devenait
+excessivement long, degradant la qualite des reponses et augmentant la latence.
+La solution : resume automatique LLM qui comprime les anciens messages en un seul
+message systeme `[Resume...]`, en conservant les N messages les plus recents.
+
+**Architecture choisie — injection fonctionnelle** :
+
+`ConversationEngine.respond()` passe une lambda `llm_fn` a `memory.maybe_summarize()`.
+Avantage : zero dependance circulaire (MemoryManager ne depend pas de LLMClient).
+Le resume utilise `profile="dev"` (modele leger) pour economiser les tokens.
+
+**Decisions techniques** :
+
+- `maybe_summarize()` echec silencieux : si le LLM echoue pendant le resume,
+  la memoire reste intacte. Jamais de perte de donnees.
+- Seuil conservateur (40) : la plupart des conversations EVA restent en dessous.
+  Le trim `max_messages=100` reste en backup si le seuil n'est pas atteint.
+- `summary_keep_recent=10` : preserve les 10 derniers messages (contexte immediat)
+  pour maintenir la coherence de la conversation apres le resume.
+- Ecriture atomique preservee : `_save_session()` inchangee apres le resume.
+
+**Metriques** :
+
+- Fichiers modifies : `eva/config.yaml`, `eva/memory/memory_manager.py`,
+  `eva/conversation/conversation_engine.py`
+- Fichiers crees : `tests/unit/test_memory_summary.py`
+- Fichiers tests modifies : `test_memory_manager.py` (+8), `test_conversation_engine.py` (+2)
+- Tests : 541 passent (+16 vs 525), 0 regression
+- Nouvelles dependances : aucune
+
+---
+
+OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5(A) VALIDEE -- Phase 5(B) VALIDEE)

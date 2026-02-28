@@ -98,6 +98,8 @@ class MemoryManager(EvaComponent):
         self._max_messages: int = self.get_config("memory.max_messages", 100)
         self._context_window: int = self.get_config("memory.context_window", 10)
         self._backend: str = self.get_config("memory.backend", "json")
+        self._summary_threshold: int = self.get_config("memory.summary_threshold", 40)
+        self._summary_keep_recent: int = self.get_config("memory.summary_keep_recent", 10)
         
         # Chemin mémoire
         self._memory_path: Path = self.get_path("memory")
@@ -326,6 +328,64 @@ class MemoryManager(EvaComponent):
         # Retourner les N derniers messages
         return self._messages[-window:] if window > 0 else self._messages
     
+    def maybe_summarize(self, llm_fn) -> bool:
+        """
+        Declenche un resume automatique si message_count >= summary_threshold.
+
+        Remplace les anciens messages par un message systeme de resume,
+        en conservant les summary_keep_recent messages les plus recents.
+        En cas d'echec du LLM, la memoire reste intacte (echec silencieux).
+
+        Args:
+            llm_fn: Callable[[List[Dict]], str] — genere le resume a partir
+                    d'une liste de messages (meme signature que llm.complete()).
+
+        Returns:
+            True si le resume a ete effectue, False sinon.
+        """
+        if len(self._messages) < self._summary_threshold:
+            return False
+
+        old = self._messages[:-self._summary_keep_recent]
+        recent = self._messages[-self._summary_keep_recent:]
+
+        # Prompt de resume
+        summary_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Resume cette conversation de facon concise, "
+                    "en conservant les informations importantes."
+                )
+            }
+        ] + old
+
+        try:
+            summary_text = llm_fn(summary_messages)
+        except Exception:
+            return False  # Echec silencieux — memoire intacte
+
+        now = datetime.now().isoformat()
+        summary_msg: Dict[str, Any] = {
+            "role": "system",
+            "content": f"[Resume de la conversation precedente] {summary_text}",
+            "timestamp": now,
+            "metadata": {
+                "summary": True,
+                "summarized_count": len(old)
+            }
+        }
+
+        self._messages = [summary_msg] + list(recent)
+        self._save_session()
+
+        self.emit("memory_summarized", {
+            "conversation_id": self._conversation_id,
+            "summarized_count": len(old),
+            "summary_length": len(summary_text)
+        })
+        return True
+
     def get_all_messages(self) -> List[Dict[str, Any]]:
         """
         Récupère tous les messages de la session.
@@ -372,7 +432,12 @@ class MemoryManager(EvaComponent):
     def context_window(self) -> int:
         """Taille de la fenêtre de contexte."""
         return self._context_window
-    
+
+    @property
+    def summary_threshold(self) -> int:
+        """Seuil declenchement resume automatique."""
+        return self._summary_threshold
+
     def __repr__(self) -> str:
         """Représentation string de MemoryManager."""
         state = "running" if self.is_running else "stopped"

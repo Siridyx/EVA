@@ -8,6 +8,15 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 5(B) — Memoire Enrichie (R-051)** :
+  - `eva/config.yaml` : ajout `memory.summary_threshold: 40` et `memory.summary_keep_recent: 10`
+  - `eva/memory/memory_manager.py` : ajout `maybe_summarize(llm_fn)` — resume automatique via LLM injecte, echec silencieux, ecriture atomique preservee ; ajout propriete `summary_threshold`
+  - `eva/conversation/conversation_engine.py` : ajout appel auto `maybe_summarize()` dans `respond()` et `respond_stream()` apres `add_message(user)` et avant `get_context()`
+  - **16 nouveaux tests** : `test_memory_manager.py` (+8 tests `maybe_summarize`), `test_memory_summary.py` (nouveau fichier, 6 tests integration), `test_conversation_engine.py` (+2 tests auto-resume)
+  - Architecture injection fonctionnelle : `memory.maybe_summarize(lambda msgs: llm.complete(msgs, profile="dev"))` — zero dependance circulaire
+  - Event `memory_summarized` emis avec `summarized_count` et `summary_length`
+  - **541 tests passent** (+16 vs 525), 0 regression — R-031 LOCKED inchange
+
 - **Phase 5(A) — Streaming Natif Ollama (R-050)** :
   - `eva/llm/llm_client.py` : ajout `stream()` par defaut (leve `NotImplementedError`) — interface streaming pour tous les providers
   - `eva/llm/providers/ollama_provider.py` : ajout `stream()` — streaming NDJSON natif (`stream: true`), bridge transport mock/production

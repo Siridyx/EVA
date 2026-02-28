@@ -958,3 +958,58 @@ def test_respond_stream_fallback_not_implemented(config, event_bus, clean_memory
     # Le fallback yielde la reponse complete du mock OpenAI
     assert len(tokens) == 1
     assert tokens[0] == "Mock response"
+
+
+# --- Tests auto-resume Phase 5(B) ---
+
+
+def test_respond_triggers_summarize_when_threshold_exceeded(
+    config, event_bus, clean_memory, prompt, llm
+):
+    """respond() appelle maybe_summarize quand message_count depasse le seuil."""
+    summary_events = []
+    event_bus.on("memory_summarized", lambda p: summary_events.append(p))
+
+    # Abaisser le seuil pour ce test
+    clean_memory._summary_threshold = 4
+    clean_memory._summary_keep_recent = 2
+
+    # Remplir la memoire (seuil=4, ajouter 4 messages)
+    clean_memory.add_message("user", "Q1")
+    clean_memory.add_message("assistant", "R1")
+    clean_memory.add_message("user", "Q2")
+    clean_memory.add_message("assistant", "R2")
+    # 4 messages = seuil
+
+    conv = ConversationEngine(config, event_bus, clean_memory, prompt, llm)
+    conv.start()
+
+    # respond() ajoute 1 message user -> 5 > seuil -> declenche resume
+    conv.respond("Question qui declenche le resume")
+
+    conv.stop()
+
+    assert len(summary_events) >= 1
+    assert summary_events[0]["summarized_count"] > 0
+
+
+def test_respond_memory_reduced_after_auto_summary(
+    config, event_bus, clean_memory, prompt, llm
+):
+    """Apres auto-resume, message_count < seuil initial."""
+    clean_memory._summary_threshold = 4
+    clean_memory._summary_keep_recent = 2
+
+    for i in range(4):
+        clean_memory.add_message("user", f"Q{i}")
+    # 4 messages = seuil
+
+    count_before = clean_memory.message_count
+
+    conv = ConversationEngine(config, event_bus, clean_memory, prompt, llm)
+    conv.start()
+    conv.respond("Trigger resume")
+    conv.stop()
+
+    # Apres resume : message_count reduit
+    assert clean_memory.message_count < count_before + 2  # +2 = user+assistant non-resumes

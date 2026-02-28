@@ -160,9 +160,14 @@ EVA est construit autour de 3 principes fondamentaux :
 
 ### MemoryManager
 - Backend : JSON dans `data/memory/` (session unique par jour)
-- `add_message(role, content)` + `get_context(window=N)`
+- `add_message(role, content, metadata?)` + `get_context(window=N)`
 - Écriture atomique (temp → rename)
-- Events : `memory_session_created`, `memory_message_added`, ...
+- **Résumé automatique** : `maybe_summarize(llm_fn)` — déclenché si `message_count >= summary_threshold`
+  - Remplace les anciens messages par 1 message système `[Resume...]` + `summary_keep_recent` messages récents
+  - `llm_fn` injecté depuis `ConversationEngine` (pas de dépendance circulaire)
+  - Echec silencieux si LLM indisponible (mémoire intacte)
+- Config : `memory.context_window` (10) · `memory.max_messages` (100) · `memory.summary_threshold` (40) · `memory.summary_keep_recent` (10)
+- Events : `memory_session_created`, `memory_message_added`, `memory_summarized`, ...
 
 ### PromptManager
 - Templates dans `data/prompts/` (fichiers `.txt`, placeholders `{{var}}`)

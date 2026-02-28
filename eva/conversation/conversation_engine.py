@@ -141,6 +141,12 @@ class ConversationEngine(EvaComponent):
             # 1. Persister user message
             self._memory.add_message("user", user_message)
 
+            # 1b. Auto-resume si seuil depasse
+            if self._memory.message_count > self._memory.summary_threshold:
+                def _summarize(msgs):
+                    return self._llm.complete(msgs, profile="dev")
+                self._memory.maybe_summarize(_summarize)
+
             # 2. Récupérer contexte
             context = self._memory.get_context()
 
@@ -260,6 +266,12 @@ class ConversationEngine(EvaComponent):
 
         # 1. Persister message user
         self._memory.add_message("user", user_message)
+
+        # 1b. Auto-resume si seuil depasse
+        if self._memory.message_count > self._memory.summary_threshold:
+            def _summarize(msgs):
+                return self._llm.complete(msgs, profile="dev")
+            self._memory.maybe_summarize(_summarize)
 
         # 2. Contexte
         context = self._memory.get_context()
