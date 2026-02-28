@@ -253,7 +253,7 @@ search(query, top_k)
 
 ## 🔧 Composants Phase 3 (Interface)
 
-### API REST / FastAPI (R-031)
+### API REST / FastAPI (R-031 + Phase 4(B) + Phase 4(C))
 
 Interface HTTP pour EVA. Lancement : `eva --api` (http://localhost:8000).
 
@@ -263,12 +263,31 @@ FastAPI(lifespan)
     ├─→ lifespan() : asyncio.to_thread(_init_eva) au startup
     │                engine.stop() au shutdown
     │
-    ├─→ GET /health  → HealthResponse                          # 200 toujours
-    ├─→ GET /status  → StatusResponse(**engine.status())       # 503 si engine None
-    └─→ POST /chat   → asyncio.to_thread(engine.process, msg) # 503/422/500
+    ├─→ GET /health       → HealthResponse                           # PUBLIC — 200 toujours
+    ├─→ GET /status       → StatusResponse(**engine.status())        # auth requise — 200 toujours
+    ├─→ POST /chat        → asyncio.to_thread(engine.process, msg)   # auth + rate limit
+    └─→ GET /chat/stream  → StreamingResponse (SSE)                  # auth + rate limit — FAKE STREAM Phase 4(C)
 ```
 
-- `EvaState` dataclass module-level : engine, config, event_bus, registry, ctx
+**Sécurité Phase 4(B)** (`eva/api/security.py`) :
+- `ApiKeyManager` : clé 256 bits dans `eva/data/secrets/api_key.txt`, `secrets.compare_digest`
+- `RateLimiter` : fenêtre glissante 60s par IP, in-memory
+- Auth acceptée : `Authorization: Bearer <key>` (header) | `X-EVA-Key: <key>` (fallback) | `?api_key=<key>` (SSE)
+- `EvaState` : + `key_manager`, `rate_limiter`
+
+**SSE Phase 4(C)** (`GET /chat/stream`) :
+- FAKE STREAM : `engine.process()` bloquant → split mots + `asyncio.sleep(0.04)` par mot
+- Protocole : `event:meta` → `event:token*` → `event:done` | `event:error`
+- TODO Phase 5 : streaming natif OllamaProvider (`"stream": True`)
+
+**Convention obligatoire tout endpoint SSE futur** :
+```python
+@app.get("/route/stream", response_class=StreamingResponse, summary="...",
+    responses={200: {"content": {"text/event-stream": {...}}}, 401: ..., 429: ..., 503: ...})
+```
+Vérification : `assert "text/event-stream" in app.openapi()["paths"]["/route/stream"]["get"]["responses"]["200"]["content"]`
+
+- `EvaState` dataclass module-level : engine, config, event_bus, registry, ctx, key_manager, rate_limiter
 - Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
 - Lifespan : init EVA au startup (asyncio.to_thread), cleanup au shutdown
 - Docs auto : `/docs` (Swagger UI) + `/redoc`
@@ -402,7 +421,7 @@ Métriques actuelles :
 ## ⚠️ Limitations Connues
 
 - Session unique (multi-conversation = Phase 4+)
-- Pas de streaming LLM (response complète uniquement)
+- SSE Phase 4(C) : FAKE STREAM (split mots) — streaming natif Ollama = Phase 5
 - EventBus synchrone (async prévu Phase 4 — DEBT-001)
 - Pipeline séquentiel uniquement (parallèle = DEBT-002)
 - CosineSimilarity O(n×dim) — FAISS prévu si index > 100k chunks
