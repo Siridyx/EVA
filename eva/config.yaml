@@ -41,7 +41,14 @@ llm:
   openai:
     # Config OpenAI (si utilisé)
     # Nécessite OPENAI_API_KEY dans .env
-  
+
+  gemini:
+    # Config Google Gemini (si utilisé)
+    # Nécessite GEMINI_API_KEY dans .env
+    models:
+      dev: "gemini-2.0-flash"       # Rapide, économique
+      default: "gemini-2.0-flash"   # À changer si gemini-pro disponible
+
   timeout: 30
   max_retries: 3
   retry_delay: 1
