@@ -15,6 +15,7 @@ Usage:
 
 import sys
 import argparse
+import getpass
 from pathlib import Path
 
 from eva import __version__
@@ -65,12 +66,21 @@ def main():
     )
 
     parser.add_argument(
+        "--create-admin",
+        action="store_true",
+        help="Crée l'utilisateur admin initial (bootstrap Phase 6(D))"
+    )
+
+    parser.add_argument(
         "--print-api-key",
         action="store_true",
         help="Affiche (ou génère) la clé API EVA pour l'API REST"
     )
 
     args = parser.parse_args()
+
+    if args.create_admin:
+        return _bootstrap_admin()
 
     if args.print_api_key:
         from eva.api.security import ApiKeyManager
@@ -93,6 +103,41 @@ def main():
     else:
         from eva.repl import main as repl_main
         return repl_main()
+
+
+def _bootstrap_admin() -> int:
+    """Crée le premier utilisateur admin de façon interactive."""
+    from eva.core.config_manager import ConfigManager
+    from eva.api.users import UserStore, UserRole
+
+    cfg = ConfigManager()
+    store = UserStore(cfg.get_path("data_root"))
+
+    if store.has_admin():
+        print("Un administrateur existe déjà. Utilisez /auth/register pour créer d'autres comptes.")
+        return 1
+
+    print("=== Création du compte administrateur EVA ===")
+    username = input("Nom d'utilisateur : ").strip()
+    if not username:
+        print("Erreur : le nom d'utilisateur ne peut pas être vide.")
+        return 1
+
+    password = getpass.getpass("Mot de passe (min 8 caractères) : ")
+    password2 = getpass.getpass("Confirmer le mot de passe : ")
+
+    if password != password2:
+        print("Erreur : les mots de passe ne correspondent pas.")
+        return 1
+
+    try:
+        user = store.create_user(username, password, UserRole.ADMIN)
+        print(f"Admin '{user.username}' créé avec succès.")
+        print("Vous pouvez maintenant vous connecter via POST /auth/login")
+        return 0
+    except ValueError as exc:
+        print(f"Erreur : {exc}")
+        return 1
 
 
 if __name__ == "__main__":

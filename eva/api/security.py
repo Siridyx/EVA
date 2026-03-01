@@ -193,29 +193,57 @@ class SessionManager:
     Les sessions expirees sont supprimees paresseusement lors de create().
     Aucune persistance : les sessions sont perdues au redemarrage (acceptable
     pour une interface locale).
+
+    Phase 6(D) : chaque session peut etre associee a un user_id (int).
+    Backward compat : create() sans user_id reste valide (user_id=None).
     """
 
     TTL: int = 86_400  # 24h en secondes
 
     def __init__(self) -> None:
-        self._sessions: dict[str, float] = {}  # session_id -> expires_at (monotonic)
+        # session_id -> (expires_at: float, user_id: Optional[int])
+        self._sessions: Dict[str, tuple] = {}
 
-    def create(self) -> str:
-        """Cree une nouvelle session et retourne le session_id."""
+    def create(self, user_id: Optional[int] = None) -> str:
+        """
+        Cree une nouvelle session et retourne le session_id.
+
+        Args:
+            user_id: ID utilisateur associe (None = session anonyme / api-key).
+
+        Returns:
+            session_id opaque (URL-safe base64, 32 bytes d'entropie).
+        """
         self._cleanup()
         session_id = secrets.token_urlsafe(32)
-        self._sessions[session_id] = time.monotonic() + self.TTL
+        self._sessions[session_id] = (time.monotonic() + self.TTL, user_id)
         return session_id
 
     def verify(self, session_id: str) -> bool:
         """Verifie qu'une session est valide et non expiree."""
-        exp = self._sessions.get(session_id)
-        if exp is None:
+        entry = self._sessions.get(session_id)
+        if entry is None:
             return False
+        exp, _ = entry
         if time.monotonic() > exp:
             del self._sessions[session_id]
             return False
         return True
+
+    def get_user_id(self, session_id: str) -> Optional[int]:
+        """
+        Retourne le user_id associe a la session, ou None.
+
+        None = session anonyme (login api-key) ou session invalide.
+        """
+        entry = self._sessions.get(session_id)
+        if entry is None:
+            return None
+        exp, user_id = entry
+        if time.monotonic() > exp:
+            del self._sessions[session_id]
+            return None
+        return user_id
 
     def revoke(self, session_id: str) -> None:
         """Revoque une session (logout)."""
@@ -224,6 +252,6 @@ class SessionManager:
     def _cleanup(self) -> None:
         """Supprime les sessions expirees (appele avant create pour eviter la fuite memoire)."""
         now = time.monotonic()
-        expired = [sid for sid, exp in self._sessions.items() if now > exp]
+        expired = [sid for sid, (exp, _) in self._sessions.items() if now > exp]
         for sid in expired:
             del self._sessions[sid]

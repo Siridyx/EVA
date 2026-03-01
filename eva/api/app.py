@@ -54,6 +54,7 @@ from pydantic import BaseModel, field_validator
 from eva import __version__
 from eva.api.metrics import MetricsCollector
 from eva.api.security import ApiKeyManager, RateLimiter, SessionManager
+from eva.api.users import User, UserRole, UserStore
 from eva.core.config_manager import ConfigManager
 from eva.core.event_bus import EventBus
 from eva.core.eva_engine import EVAEngine
@@ -140,6 +141,7 @@ class EvaState:
     metrics_collector: Optional[MetricsCollector] = None  # Phase 5(C) — observabilite
     session_manager: Optional[SessionManager] = None  # Phase 6(A) — session cookie auth
     tls: bool = False                             # Phase 6(B) — HTTPS mode
+    user_store: Optional[UserStore] = None        # Phase 6(D) — multi-utilisateurs
 
 
 _state = EvaState()
@@ -220,6 +222,9 @@ def _init_eva() -> None:
             rate_limit = int(_state.config.get("api.rate_limit_per_min", 60))
             _state.rate_limiter = RateLimiter(max_per_min=rate_limit)
             _state.session_manager = SessionManager()
+            # Phase 6(D) — UserStore SQLite
+            data_root = _state.config.get_path("data_root")
+            _state.user_store = UserStore(data_root)
     except Exception as sec_exc:
         # Non bloquant : l'API démarre sans auth plutôt que de crash
         _state.init_error = (
@@ -911,9 +916,46 @@ async def get_metrics():
 
 
 class LoginRequest(BaseModel):
-    """Corps de la requete POST /auth/login."""
+    """
+    Corps de la requete POST /auth/login.
 
-    api_key: str
+    Deux modes (mutuellement exclusifs) :
+        1. api_key seul  — backward compat (scripts, clients existants)
+        2. username + password — Phase 6(D) multi-utilisateurs
+    """
+
+    api_key: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+
+class RegisterRequest(BaseModel):
+    """Corps de la requete POST /auth/register."""
+
+    username: str
+    password: str
+    role: str = "user"  # "admin" | "user"
+
+
+class MeResponse(BaseModel):
+    """Reponse de GET /me."""
+
+    username: Optional[str]
+    role: Optional[str]
+    authenticated: bool
+
+
+def _set_session_cookie(response: Response, session_id: str) -> None:
+    """Helper : pose le cookie eva_session avec les bons flags."""
+    response.set_cookie(
+        key="eva_session",
+        value=session_id,
+        httponly=True,
+        samesite="strict",
+        path="/",
+        max_age=SessionManager.TTL,
+        secure=_state.tls,
+    )
 
 
 @app.post(
@@ -922,32 +964,139 @@ class LoginRequest(BaseModel):
     summary="Demarrer une session (cookie HttpOnly)",
     responses={
         200: {"description": "Session creee. Cookie eva_session set."},
-        401: {"description": "Cle API invalide."},
+        400: {"description": "Corps de requete invalide."},
+        401: {"description": "Credentials invalides."},
         503: {"description": "Service non initialise."},
     },
 )
 async def auth_login(body: LoginRequest, response: Response) -> dict:
     """
-    Valide la cle API et cree une session via cookie HttpOnly/SameSite=Strict.
+    Cree une session via cookie HttpOnly/SameSite=Strict.
 
-    La cle API n'est jamais renvoyee au client ni exposee dans l'HTML.
-    Le cookie eva_session (TTL 24h) est utilise pour toutes les requetes suivantes.
+    Deux modes :
+    - **api_key** : valide la cle API globale (backward compat)
+    - **username + password** : valide contre la base utilisateurs (Phase 6(D))
+
+    Si des utilisateurs existent et que username+password est fourni,
+    la session est associee au user_id.
     """
-    if _state.key_manager is None:
+    if _state.session_manager is None:
         raise HTTPException(status_code=503, detail="Service non initialise.")
-    if not _state.key_manager.verify(body.api_key):
-        raise HTTPException(status_code=401, detail="Cle API invalide.")
-    session_id = _state.session_manager.create()  # type: ignore[union-attr]
-    response.set_cookie(
-        key="eva_session",
-        value=session_id,
-        httponly=True,
-        samesite="strict",
-        path="/",
-        max_age=SessionManager.TTL,
-        secure=_state.tls,  # True en mode HTTPS (eva --api --tls)
-    )
+
+    user_id: Optional[int] = None
+
+    # --- Mode username+password (Phase 6(D)) ---
+    if body.username is not None or body.password is not None:
+        if not body.username or not body.password:
+            raise HTTPException(
+                status_code=400,
+                detail="username et password requis ensemble.",
+            )
+        if _state.user_store is None:
+            raise HTTPException(status_code=503, detail="Service non initialise.")
+        user = _state.user_store.authenticate(body.username, body.password)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Identifiants invalides.")
+        user_id = user.id
+
+    # --- Mode api_key (backward compat) ---
+    elif body.api_key is not None:
+        if _state.key_manager is None:
+            raise HTTPException(status_code=503, detail="Service non initialise.")
+        if not _state.key_manager.verify(body.api_key):
+            raise HTTPException(status_code=401, detail="Cle API invalide.")
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Fournir api_key OU username+password.",
+        )
+
+    session_id = _state.session_manager.create(user_id=user_id)
+    _set_session_cookie(response, session_id)
     return {"status": "ok"}
+
+
+@app.post(
+    "/auth/register",
+    tags=["Auth"],
+    summary="Creer un utilisateur (admin uniquement)",
+    responses={
+        200: {"description": "Utilisateur cree."},
+        400: {"description": "Donnees invalides ou username deja existant."},
+        401: {"description": "Non authentifie ou role insuffisant."},
+        503: {"description": "Service non initialise."},
+    },
+    dependencies=[Depends(require_api_key)],
+)
+async def auth_register(body: RegisterRequest, request: Request) -> dict:
+    """
+    Cree un nouvel utilisateur local.
+
+    Accessible uniquement aux admins (ou via api-key globale pour le
+    premier admin — bootstrap).
+    """
+    if _state.user_store is None or _state.session_manager is None:
+        raise HTTPException(status_code=503, detail="Service non initialise.")
+
+    # Verifier que le demandeur est admin (si des utilisateurs existent)
+    if _state.user_store.has_admin():
+        session_id = request.cookies.get("eva_session", "")
+        caller_user_id = _state.session_manager.get_user_id(session_id)
+        if caller_user_id is not None:
+            caller = _state.user_store.get_by_id(caller_user_id)
+            if caller is None or caller.role != UserRole.ADMIN:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Role admin requis pour creer un utilisateur.",
+                )
+        # Si caller_user_id est None : connexion api-key => admin implicite OK
+
+    # Valider le role
+    try:
+        role = UserRole(body.role)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Role invalide '{body.role}'. Valeurs acceptees : admin, user.",
+        )
+
+    try:
+        user = _state.user_store.create_user(body.username, body.password, role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {"status": "ok", "username": user.username, "role": user.role.value}
+
+
+@app.get(
+    "/me",
+    tags=["Auth"],
+    summary="Profil de l'utilisateur courant",
+    responses={
+        200: {"description": "Informations utilisateur courant."},
+    },
+    dependencies=[Depends(require_api_key)],
+)
+async def me(request: Request) -> MeResponse:
+    """
+    Retourne le profil de l'utilisateur authentifie.
+
+    Si la session est anonyme (login par api-key), retourne authenticated=True
+    sans username ni role.
+    """
+    session_id = request.cookies.get("eva_session", "")
+    if session_id and _state.session_manager:
+        user_id = _state.session_manager.get_user_id(session_id)
+        if user_id is not None and _state.user_store:
+            user = _state.user_store.get_by_id(user_id)
+            if user:
+                return MeResponse(
+                    username=user.username,
+                    role=user.role.value,
+                    authenticated=True,
+                )
+    return MeResponse(username=None, role=None, authenticated=True)
 
 
 @app.post(
