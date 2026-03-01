@@ -593,7 +593,7 @@ async def web_index() -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 
-def main(host: str = "127.0.0.1", port: int = 8000) -> int:
+def main(host: str = "127.0.0.1", port: int = 8000, tls: bool = False) -> int:
     """
     Lance le serveur EVA Web.
 
@@ -601,16 +601,41 @@ def main(host: str = "127.0.0.1", port: int = 8000) -> int:
         host: Adresse d'écoute.
               Phase 3 security rule: API bound to 127.0.0.1 only.
         port: Port d'écoute (défaut : 8000)
+        tls:  Active HTTPS avec certificat auto-signé (Phase 6(B)).
 
     Returns:
         Code de sortie (0 = normal, 1 = erreur)
     """
+    ssl_certfile = None
+    ssl_keyfile = None
+    if tls:
+        try:
+            from eva.api.tls import CertManager
+            from eva.core.config_manager import ConfigManager as _CM
+            cert_mgr = CertManager(_CM().get_path("data_root"))
+            cert_path, key_path = cert_mgr.ensure()
+            ssl_certfile = str(cert_path)
+            ssl_keyfile = str(key_path)
+        except Exception as exc:
+            print(f"Erreur TLS : {exc}")
+            return 1
+
+    scheme = "https" if tls else "http"
     try:
         import uvicorn
 
-        print(f"EVA Web v{__version__} — http://{host}:{port}")
-        print(f"  API docs : http://{host}:{port}/docs")
-        uvicorn.run(app, host=host, port=port)
+        print(f"EVA Web v{__version__} — {scheme}://{host}:{port}")
+        if tls:
+            print("  TLS   : certificat auto-signé (eva/data/certs/)")
+            print("  Note  : acceptez l'avertissement navigateur (cert non-CA)")
+        print(f"  API docs : {scheme}://{host}:{port}/docs")
+
+        uvicorn_kwargs: dict = {"host": host, "port": port}
+        if ssl_certfile and ssl_keyfile:
+            uvicorn_kwargs["ssl_certfile"] = ssl_certfile
+            uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+
+        uvicorn.run(app, **uvicorn_kwargs)
         return 0
     except ImportError:
         print(

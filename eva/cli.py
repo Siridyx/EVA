@@ -5,7 +5,9 @@ Usage:
     eva                     # Lance REPL interactif
     eva --tui               # Lance le Terminal UI (Textual)
     eva --api               # Lance l'API REST JSON (FastAPI — localhost:8000)
+    eva --api --tls         # Lance l'API REST en HTTPS (cert auto-signé)
     eva --web               # Lance l'interface web (FastAPI + UI browser — localhost:8000)
+    eva --web --tls         # Lance l'interface web en HTTPS
     eva --print-api-key     # Affiche (ou génère) la clé API EVA
     eva --version           # Affiche version
     eva --help              # Aide
@@ -57,6 +59,12 @@ def main():
     )
 
     parser.add_argument(
+        "--tls",
+        action="store_true",
+        help="Active HTTPS avec certificat auto-signé (pour --api ou --web)"
+    )
+
+    parser.add_argument(
         "--print-api-key",
         action="store_true",
         help="Affiche (ou génère) la clé API EVA pour l'API REST"
@@ -74,11 +82,11 @@ def main():
 
     if args.api:
         from eva.api.app import main as api_main
-        return api_main()
+        return api_main(tls=args.tls)
     elif args.web:
         import eva.web.app  # enregistre GET / sur l'app FastAPI
         from eva.web.app import main as web_main
-        return web_main()
+        return web_main(tls=args.tls)
     elif args.tui:
         from eva.ui.tui.app import main as tui_main
         return tui_main()

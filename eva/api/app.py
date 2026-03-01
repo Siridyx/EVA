@@ -139,6 +139,7 @@ class EvaState:
     rate_limiter: Optional[RateLimiter] = None    # Phase 4(B) — rate limit
     metrics_collector: Optional[MetricsCollector] = None  # Phase 5(C) — observabilite
     session_manager: Optional[SessionManager] = None  # Phase 6(A) — session cookie auth
+    tls: bool = False                             # Phase 6(B) — HTTPS mode
 
 
 _state = EvaState()
@@ -312,6 +313,28 @@ app = FastAPI(
         },
     ],
 )
+
+
+# ---------------------------------------------------------------------------
+# Middleware HSTS (Phase 6(B)) — actif uniquement en mode TLS
+# ---------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def hsts_middleware(request: Request, call_next):
+    """
+    Ajoute le header HSTS si l'API tourne en mode TLS.
+
+    Strict-Transport-Security force le navigateur a utiliser HTTPS
+    pour toutes les requetes suivantes pendant 1 an.
+    N'est actif que si _state.tls == True (eva --api --tls).
+    """
+    response = await call_next(request)
+    if _state.tls:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -922,7 +945,7 @@ async def auth_login(body: LoginRequest, response: Response) -> dict:
         samesite="strict",
         path="/",
         max_age=SessionManager.TTL,
-        secure=False,  # localhost HTTP -- mettre True en production HTTPS
+        secure=_state.tls,  # True en mode HTTPS (eva --api --tls)
     )
     return {"status": "ok"}
 
@@ -951,7 +974,7 @@ async def auth_logout(request: Request, response: Response) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def main(host: str = "127.0.0.1", port: int = 8000) -> int:
+def main(host: str = "127.0.0.1", port: int = 8000, tls: bool = False) -> int:
     """
     Lance le serveur API EVA.
 
@@ -960,8 +983,9 @@ def main(host: str = "127.0.0.1", port: int = 8000) -> int:
     Args:
         host: Adresse d'écoute.
               Phase 4 security rule: API bound to 127.0.0.1 (auth ajoutée).
-              Phase 5 pourra ouvrir à 0.0.0.0 après validation du modèle auth.
         port: Port d'écoute (défaut : 8000)
+        tls:  Active HTTPS avec certificat auto-signé (Phase 6(B)).
+              Génère eva/data/certs/server.crt + server.key au 1er lancement.
 
     Returns:
         Code de sortie (0 = normal, 1 = erreur)
@@ -976,15 +1000,42 @@ def main(host: str = "127.0.0.1", port: int = 8000) -> int:
     except Exception:
         pass
 
+    # Mode TLS : générer / vérifier le certificat
+    ssl_certfile: Optional[str] = None
+    ssl_keyfile: Optional[str] = None
+    if tls:
+        try:
+            from eva.api.tls import CertManager
+            _cfg2 = ConfigManager()
+            cert_mgr = CertManager(_cfg2.get_path("data_root"))
+            cert_path, key_path = cert_mgr.ensure()
+            ssl_certfile = str(cert_path)
+            ssl_keyfile = str(key_path)
+            # Activer le flag TLS dans l'état partagé (cookie Secure + HSTS)
+            _state.tls = True
+        except Exception as exc:
+            print(f"Erreur TLS : {exc}")
+            return 1
+
+    scheme = "https" if tls else "http"
     try:
         import uvicorn
 
-        print(f"EVA API v{__version__} — http://{host}:{port}")
+        print(f"EVA API v{__version__} — {scheme}://{host}:{port}")
+        if tls:
+            print("  TLS   : certificat auto-signé (eva/data/certs/)")
+            print("  Note  : acceptez l'avertissement navigateur (cert non-CA)")
         if _api_key:
             print(f"  API Key : {_api_key}")
-        print(f"  Docs  : http://{host}:{port}/docs")
-        print(f"  Redoc : http://{host}:{port}/redoc")
-        uvicorn.run(app, host=host, port=port)
+        print(f"  Docs  : {scheme}://{host}:{port}/docs")
+        print(f"  Redoc : {scheme}://{host}:{port}/redoc")
+
+        uvicorn_kwargs: dict = {"host": host, "port": port}
+        if ssl_certfile and ssl_keyfile:
+            uvicorn_kwargs["ssl_certfile"] = ssl_certfile
+            uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+
+        uvicorn.run(app, **uvicorn_kwargs)
         return 0
     except ImportError:
         print(
