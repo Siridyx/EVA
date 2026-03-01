@@ -3,8 +3,8 @@
 Documentation de l'architecture globale du projet EVA.
 
 - Version : 0.3.0
-- Dernière mise à jour : 2026-02-28
-- Phase : P3 ✅ COMPLÈTE (R-033 ✅ — R-030 ✅ — R-031 ✅ — R-032 ✅) | P4 en cours
+- Dernière mise à jour : 2026-03-01
+- Phase : P6 🔄 EN COURS (P3 ✅ P4 ✅ P5 ✅ P6(A/B/D/D.1) ✅ | P6(C) ⏳)
 
 ---
 
@@ -13,10 +13,12 @@ Documentation de l'architecture globale du projet EVA.
 EVA est construit autour de 3 principes fondamentaux :
 
 **Modularité**
+
 - Composants découplés, testables, remplaçables
 - Chaque module hérite de `EvaComponent`
 
 **Évolutivité**
+
 - P0 = fondations (Config, EventBus, Engine)
 - P1 = conversation (LLM, Prompts, Memory, Plugins)
 - P2 = intelligence (Tool Calling, Agent ReAct, RAG)
@@ -24,6 +26,7 @@ EVA est construit autour de 3 principes fondamentaux :
 - P4 = qualité & production (CI/CD, Audit, Perf)
 
 **Observabilité**
+
 - `EventBus` (pub/sub) : communication inter-composants
 - `LoggingManager` : fichiers dans `data/logs/`
 - `status()` sur chaque composant (introspection)
@@ -40,7 +43,7 @@ EVA est construit autour de 3 principes fondamentaux :
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │              CommandRegistry (R-033)                  │  │
 │  │  Command(name, handler(args, ctx) → CommandResult)    │  │
-│  │  Partagé : CLI · Terminal UI (R-030) · API (R-031)   │  │
+│  │  Partagé : CLI · Terminal UI (R-030) · API (R-031)    │  │
 │  └───────────────────────────────────────────────────────┘  │
 └──────────────────────────┬──────────────────────────────────┘
                            │ input utilisateur
@@ -54,19 +57,19 @@ EVA est construit autour de 3 principes fondamentaux :
 └──────┬──────────────────┬────────────────────┬──────────────┘
        │                  │                    │
        ▼                  ▼                    ▼
-┌─────────────┐    ┌─────────────┐    ┌──────────────────────┐
+┌─────────────┐    ┌─────────────┐    ┌───────────────────────┐
 │ConfigManager│    │  EventBus   │    │    EvaComponent       │
 │             │    │ (pub/sub)   │    │ (base universelle)    │
 │• get()      │    │• on()       │    │• start() / stop()     │
 │• get_path() │    │• emit()     │    │• emit() / get_config()│
 │• get_secret │    │• off()      │    │• lifecycle idempotent │
-└─────────────┘    └─────────────┘    └──────────────────────┘
+└─────────────┘    └─────────────┘    └───────────────────────┘
                                                │
                            ┌───────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    ConversationEngine                       │
-│               Memory → Prompt → LLM → Memory               │
+│               Memory → Prompt → LLM → Memory                │
 │                                                             │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐  │
 │  │MemoryManager │  │PromptManager │  │    LLMClient      │  │
@@ -75,7 +78,7 @@ EVA est construit autour de 3 principes fondamentaux :
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │            Tool Calling Integration (R-020)          │   │
-│  │  User → LLM → detect → execute → LLM → response     │   │
+│  │  User → LLM → detect → execute → LLM → response      │   │
 │  │  ToolRegistry · ToolExecutor · @tool decorator       │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
@@ -110,11 +113,12 @@ EVA est construit autour de 3 principes fondamentaux :
 │  ├── cache/                                                 │
 │  ├── prompts/                   eva/ui/  (R-033)            │
 │  ├── dumps/                     ├── command_registry.py     │
-│  └── .version                   └── commands.py            │
+│  └── .version                   └── commands.py             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **Légende** :
+
 - `→` : Flux de données principal
 - `EventBus` : Cross-cutting (tous les composants émettent/écoutent)
 - `EvaComponent` : Base universelle (lifecycle + injection)
@@ -124,6 +128,7 @@ EVA est construit autour de 3 principes fondamentaux :
 ## 🔧 Composants Core (Phase 0)
 
 ### ConfigManager
+
 - Charge `config.yaml` (racine projet)
 - `get(key)` avec notation pointée (ex: `llm.models.dev`)
 - `get_path(name)` vers `data/`
@@ -131,6 +136,7 @@ EVA est construit autour de 3 principes fondamentaux :
 - Création auto des dossiers `data/` manquants
 
 ### EventBus
+
 - Communication découplée inter-composants (pub/sub)
 - Synchrone en P0/P1 (interface stable pour migration async)
 - Isolation des handlers (un handler en erreur ne bloque pas les autres)
@@ -138,18 +144,21 @@ EVA est construit autour de 3 principes fondamentaux :
 - API : `on()`, `emit()`, `off()`
 
 ### EvaComponent
+
 - Classe de base universelle pour tous les composants EVA
 - `start()` / `stop()` / `shutdown()` idempotents
 - Erreurs observables via events
 - Helpers : `emit()`, `get_config()`, `get_path()`, `get_secret()`
 
 ### LoggingManager
+
 - Logs techniques dans `data/logs/`
 - Rotation automatique (taille + backup count)
 - Événement `log_written` pour observabilité
 - Règle : l'UI affiche, le Engine décide, le Logging trace
 
 ### VersionManager
+
 - Fichier `data/.version` (semver)
 - Framework de migration prêt
 - Détection de version mismatch
@@ -159,6 +168,7 @@ EVA est construit autour de 3 principes fondamentaux :
 ## 🔧 Composants Phase 1 (Conversation)
 
 ### MemoryManager
+
 - Backend : JSON dans `data/memory/` (session unique par jour)
 - `add_message(role, content, metadata?)` + `get_context(window=N)`
 - Écriture atomique (temp → rename)
@@ -170,22 +180,26 @@ EVA est construit autour de 3 principes fondamentaux :
 - Events : `memory_session_created`, `memory_message_added`, `memory_summarized`, ...
 
 ### PromptManager
+
 - Templates dans `data/prompts/` (fichiers `.txt`, placeholders `{{var}}`)
 - Auto-création des prompts par défaut si manquants
 - `render(vars, strict=True)` avec validation des placeholders
 
 ### LLMClient
+
 - Interface abstraite multi-provider : `complete(messages, profile, tools)`
 - Providers : Ollama (local) · OpenAI · Anthropic · Groq
 - Retry logic + backoff exponentiel + timeout configurable
 
 ### ConversationEngine
+
 - Pipeline : `persist user → context → prompt → LLM → persist response`
 - `respond(user_input) → str`
 - Intégration Tool Calling (workflow 2 appels LLM si tool détecté)
 - Events : `conversation_request_received`, `llm_request_started`, `conversation_reply_ready`, ...
 
 ### Plugin System
+
 - `PluginBase` : contrat plugin (hérite `EvaComponent`)
 - `PluginRegistry` : registry central + isolation erreurs
 - `PluginLoader` : auto-discovery (`*_plugin.py` / `*/plugin.py`), import safe
@@ -197,16 +211,19 @@ EVA est construit autour de 3 principes fondamentaux :
 ### Tool System (R-020 à R-023)
 
 Architecture provider-agnostic :
+
 - **Ollama** : prompt engineering + détection JSON custom
 - **OpenAI** : function calling natif (paramètre `tools`)
 
 Composants :
+
 - `ToolDefinition` (dataclass) : name, description, function, parameters, returns, `to_openai_function()`
 - `ToolRegistry` (EvaComponent) : register, unregister, get, list_tools
 - `ToolExecutor` (EvaComponent) : execute safe (timeout 30s, crash isolé)
 - `@tool` decorator : création de tool en une ligne
 
 ConversationEngine integration :
+
 - `_detect_tool_call()` : parse JSON `{"action":"tool_call",...}`
 - Workflow : User → LLM → detect → execute → LLM → reformulation
 - Persistence mémoire des tool calls + results (`role="tool"`)
@@ -258,9 +275,9 @@ search(query, top_k)
 
 ## 🔧 Composants Phase 3 (Interface)
 
-### API REST / FastAPI (R-031 + Phase 4(B) + Phase 4(C))
+### API REST / FastAPI (R-031 + Phase 4(B/C) + Phase 5(A/C) + Phase 6(A/B/D/D.1))
 
-Interface HTTP pour EVA. Lancement : `eva --api` (http://localhost:8000).
+Interface HTTP pour EVA. Lancement : `eva --api` (http://localhost:8000) ou `eva --api --tls` (HTTPS).
 
 ```
 FastAPI(lifespan)
@@ -268,34 +285,66 @@ FastAPI(lifespan)
     ├─→ lifespan() : asyncio.to_thread(_init_eva) au startup
     │                engine.stop() au shutdown
     │
-    ├─→ GET /health       → HealthResponse                           # PUBLIC — 200 toujours
-    ├─→ GET /status       → StatusResponse(**engine.status())        # auth requise — 200 toujours
-    ├─→ POST /chat        → asyncio.to_thread(engine.process, msg)   # auth + rate limit
-    └─→ GET /chat/stream  → StreamingResponse (SSE)                  # auth + rate limit — FAKE STREAM Phase 4(C)
+    ├─→ GET  /health          → HealthResponse                           # PUBLIC — 200 toujours
+    ├─→ GET  /status          → StatusResponse(**engine.status())        # auth requise — 200 toujours
+    ├─→ POST /chat            → asyncio.to_thread(engine.process, msg)   # auth + rate limit
+    ├─→ GET  /chat/stream     → StreamingResponse (SSE natif Ollama)     # auth + rate limit
+    ├─→ GET  /metrics         → MetricsResponse                          # auth requise
+    ├─→ POST /auth/login      → cookie eva_session HttpOnly              # rate limited
+    ├─→ POST /auth/logout     → supprime cookie eva_session              # public
+    ├─→ POST /auth/register   → crée compte (admin session requis)       # rate limited
+    └─→ GET  /me              → infos compte authentifié                 # auth requise
 ```
 
 **Sécurité Phase 4(B)** (`eva/api/security.py`) :
+
 - `ApiKeyManager` : clé 256 bits dans `eva/data/secrets/api_key.txt`, `secrets.compare_digest`
 - `RateLimiter` : fenêtre glissante 60s par IP, in-memory
-- Auth acceptée : `Authorization: Bearer <key>` (header) | `X-EVA-Key: <key>` (fallback) | `?api_key=<key>` (SSE)
-- `EvaState` : + `key_manager`, `rate_limiter`
+- Auth acceptée : `Authorization: Bearer <key>` | `X-EVA-Key: <key>` | `?api_key=<key>` (SSE backward compat)
 
-**SSE Phase 4(C)** (`GET /chat/stream`) :
-- FAKE STREAM : `engine.process()` bloquant → split mots + `asyncio.sleep(0.04)` par mot
-- Protocole : `event:meta` → `event:token*` → `event:done` | `event:error`
-- TODO Phase 5 : streaming natif OllamaProvider (`"stream": True`)
+**Session Phase 6(A)** (`eva/api/security.py`) :
+
+- `SessionManager` : sessions HttpOnly TTL 24h, `secrets.token_urlsafe(32)`, `get_user_id(session_id) → int|None`
+- Cookie `eva_session` : HttpOnly, SameSite=Strict, Secure=True en mode TLS
+- `require_api_key` : cookie d'abord → Bearer → X-EVA-Key (priorité décroissante)
+- `chat_stream` (SSE) : EventSource navigateur envoie les cookies automatiquement
+
+**Multi-utilisateurs Phase 6(D)** (`eva/api/users.py`) :
+
+- `UserStore` (SQLite `data/users/users.db`) : PBKDF2-HMAC-SHA256, sel 256 bits
+- `UserRole` : `admin` | `user` (permissions différenciées)
+- `eva --create-admin` : bootstrap premier admin interactif
+
+**Hardening Phase 6(D.1)** :
+
+- `_resolve_conv_id(request, provided)` : namespacing `user:<id>:<uuid>`, 403 si ID inter-utilisateur
+- Rate limit sur `/auth/login` et `/auth/register`
+- Politique register : api-key-only refuse après bootstrap (session admin requise)
+
+**TLS Phase 6(B)** :
+
+- `CertManager` : certificat auto-signé RSA 2048 dans `eva/data/certs/`
+- `eva --api --tls` : uvicorn avec `ssl_keyfile` + `ssl_certfile`
+
+**SSE Phase 5(A)** (`GET /chat/stream`) :
+
+- Streaming natif Ollama via `process_stream()` (bridge asyncio.Queue)
+- Protocole : `event:meta` → `event:token` (N) → `event:done` | `event:error`
+- `event:done` enrichi : `latency_ms`, `ttft_ms`, `tokens`, `tokens_per_sec`
 
 **Convention obligatoire tout endpoint SSE futur** :
+
 ```python
 @app.get("/route/stream", response_class=StreamingResponse, summary="...",
     responses={200: {"content": {"text/event-stream": {...}}}, 401: ..., 429: ..., 503: ...})
 ```
+
 Vérification : `assert "text/event-stream" in app.openapi()["paths"]["/route/stream"]["get"]["responses"]["200"]["content"]`
 
-- `EvaState` dataclass module-level : engine, config, event_bus, registry, ctx, key_manager, rate_limiter
-- Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`
+- `EvaState` dataclass module-level : engine, config, event_bus, registry, ctx, key_manager, rate_limiter, session_manager, metrics_collector, user_store, tls
+- Schémas Pydantic : `ChatRequest`, `ChatResponse`, `StatusResponse`, `HealthResponse`, `LoginRequest`
 - Lifespan : init EVA au startup (asyncio.to_thread), cleanup au shutdown
-- Docs auto : `/docs` (Swagger UI) + `/redoc`
+- Boot output : URL de base + `openapi.json` + note dev-only (sans `/docs`/`/redoc`)
 - **Note** : `api_module = sys.modules["eva.api.app"]` dans tests (conflit `eva.api.app` avec objet FastAPI)
 
 ### Terminal UI / Textual (R-030)
@@ -338,6 +387,7 @@ CommandContext(engine, config, event_bus, registry)
 ```
 
 `CommandRegistry` :
+
 - `register(command)` — avec détection des doublons (nom + alias)
 - `get(name)` — résolution par nom ou alias, insensible à la casse
 - `execute(raw_input, ctx)` — parse le slash, dispatch, isole les exceptions
@@ -347,6 +397,7 @@ CommandContext(engine, config, event_bus, registry)
 8 commandes par défaut : `/help`, `/status`, `/start`, `/stop`, `/new`, `/config`, `/clear`, `/quit`
 
 REPL (eva/repl.py) :
+
 - Couche I/O mince au-dessus du CommandRegistry
 - Readline : historique haut/bas + Tab autocomplete (fallback gracieux)
 
@@ -389,14 +440,16 @@ EVA/
 │   │   └── demo_tools.py
 │   ├── api/                    # API REST FastAPI (R-031)
 │   │   ├── __init__.py
-│   │   └── app.py              # EvaState, lifespan, /health /status /chat
+│   │   ├── app.py              # EvaState, lifespan, tous les endpoints
+│   │   ├── security.py         # ApiKeyManager, RateLimiter, SessionManager, CertManager
+│   │   └── users.py            # UserStore (SQLite), UserRole, PBKDF2
 │   ├── ui/                     # Contrat Command Registry (R-033) + TUI
 │   │   ├── command_registry.py # Command, CommandResult, CommandContext
 │   │   ├── commands.py         # Handlers par défaut (zero I/O)
 │   │   └── tui/                # Terminal UI Textual (R-030)
 │   │       ├── app.py          # EvaTuiApp, ChatView, StatusSidebar, EvaInput
 │   │       └── styles.tcss     # Thème sombre cyan/bleu
-│   ├── cli.py                  # Point d'entrée `eva` (argparse + --api --tui)
+│   ├── cli.py                  # Point d'entrée `eva` (--api --web --tui --tls --create-admin --print-api-key --print-api-urls)
 │   └── repl.py                 # REPL : readline + dispatch registry
 ├── plugins/                    # Plugins tiers / custom
 ├── data/                       # Runtime (logs, memory, cache, prompts)
@@ -409,25 +462,31 @@ EVA/
 ## 🧪 Tests
 
 Stratégie :
+
 - `tests/unit/` : composants isolés (mocks, no I/O réel)
 - `tests/smoke/` : intégration stack minimale
 
 Isolation :
+
 - `EVA_DATA_DIR` forcé vers `tmp_path` (conftest autouse)
 - `EVA_TEST_MODE=1` : timeouts courts, retries=0
 - Aucun accès réseau réel en tests unitaires
 
 Métriques actuelles :
-- **524 tests** passent en **~27s**
+
+- **738 tests** passent en **~8min**
 - Coverage : ~95%
 
 ---
 
 ## ⚠️ Limitations Connues
 
-- Session unique (multi-conversation = Phase 4+)
-- SSE Phase 4(C) : FAKE STREAM (split mots) — streaming natif Ollama = Phase 5
-- EventBus synchrone (async prévu Phase 4 — DEBT-001)
+- SSE streaming natif Ollama ✅ (Phase 5(A) — FAKE STREAM remplacé)
+- Multi-utilisateurs ✅ (Phase 6(D) — UserStore SQLite)
+- Session HttpOnly cookie ✅ (Phase 6(A))
+- HTTPS/TLS ✅ (Phase 6(B))
+- EventBus synchrone (async prévu — DEBT-001)
 - Pipeline séquentiel uniquement (parallèle = DEBT-002)
 - CosineSimilarity O(n×dim) — FAISS prévu si index > 100k chunks
 - TUI : pas de support natif du streaming (replace_thinking post-hoc)
+- Exposition réseau 0.0.0.0 ⏳ (Phase 6(C)) — Swagger lockdown prévu

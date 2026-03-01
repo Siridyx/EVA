@@ -1,7 +1,7 @@
 # EVA API — Guide développeur
 
 **Version** : 0.3.0
-**Phase** : 6(D) — multi-utilisateurs
+**Phase** : 6(D.1) — hardening multi-utilisateurs
 **Base URL** : `http://127.0.0.1:8000`
 **OpenAPI JSON** : `http://127.0.0.1:8000/openapi.json`
 
@@ -22,6 +22,10 @@
 1. [Installation et lancement](#1-installation-et-lancement)
 2. [Authentification](#2-authentification)
 3. [Endpoints](#3-endpoints)
+   - [POST /auth/login](#post-authlogin)
+   - [POST /auth/logout](#post-authlogout)
+   - [POST /auth/register](#post-authregister)
+   - [GET /me](#get-me)
    - [GET /health](#get-health)
    - [GET /status](#get-status)
    - [POST /chat](#post-chat)
@@ -30,7 +34,7 @@
 4. [Rate Limiting](#4-rate-limiting)
 5. [Codes d'erreur](#5-codes-derreur)
 6. [Exemples complets](#6-exemples-complets)
-7. [Non-goals Phase 4](#7-non-goals-phase-4)
+7. [Non-goals / Roadmap](#7-non-goals--roadmap)
 
 ---
 
@@ -60,12 +64,20 @@ eva --api
 
 # Sortie au démarrage :
 # EVA API v0.3.0 — http://127.0.0.1:8000
-#   API Key : a3f8c2d1e9b047...  ← clé à conserver
-#   Docs  : http://127.0.0.1:8000/docs
-#   Redoc : http://127.0.0.1:8000/redoc
+#   API key : (set) -- run 'eva --print-api-key' to display
+#   API     : http://127.0.0.1:8000
+#   OpenAPI : http://127.0.0.1:8000/openapi.json
+#   Note    : Docs UI (/docs) is for development only.
+
+# Avec HTTPS (Phase 6(B))
+eva --api --tls
+# → https://127.0.0.1:8000 (certificat auto-signé dans eva/data/certs/)
 
 # Via uvicorn directement
 uvicorn eva.api.app:app --host 127.0.0.1 --port 8000
+
+# Afficher toutes les URLs de dev (inclut /docs et /redoc)
+eva --print-api-urls
 ```
 
 ### Récupérer la clé API
@@ -82,28 +94,41 @@ Elle persiste entre les redémarrages.
 
 ## 2. Authentification
 
-Tous les endpoints sauf `/health` exigent une clé API.
+Tous les endpoints sauf `/health` et `/auth/logout` exigent une authentification.
+
+### Méthode recommandée — Session Web UI (Phase 6(A))
+
+1. `POST /auth/login` avec la clé API → reçoit cookie `eva_session` (HttpOnly, SameSite=Strict)
+2. Toutes les requêtes suivantes utilisent le cookie automatiquement (navigateur)
+3. `POST /auth/logout` pour révoquer la session
 
 ### Méthodes acceptées (par ordre de priorité)
 
-| Méthode                 | Exemple                       | Usage                                          |
-| ----------------------- | ----------------------------- | ---------------------------------------------- |
-| Header `Authorization`  | `Authorization: Bearer <key>` | Standard — curl, SDK, client HTTP              |
-| Header `X-EVA-Key`      | `X-EVA-Key: <key>`            | Fallback pratique                              |
-| Query param `?api_key=` | `?api_key=<key>`              | EventSource navigateur (headers non supportés) |
+| Méthode                 | Exemple                             | Usage                                                |
+| ----------------------- | ----------------------------------- | ---------------------------------------------------- |
+| Cookie `eva_session`    | Automatique (navigateur)            | Web UI — EventSource n'a pas besoin de `?api_key=`   |
+| Header `Authorization`  | `Authorization: Bearer <key>`       | Standard — curl, SDK, client HTTP                    |
+| Header `X-EVA-Key`      | `X-EVA-Key: <key>`                  | Fallback pratique                                    |
+| Query param `?api_key=` | `?api_key=<key>`                    | Backward compat curl/SSE sans headers                |
 
 ### Exemples curl
 
 ```bash
 KEY=$(eva --print-api-key)
 
-# Header standard
+# Session (recommandé pour web)
+curl -c cookies.txt -X POST http://127.0.0.1:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "'"$KEY"'"}'
+curl -b cookies.txt http://127.0.0.1:8000/status  # cookie envoyé automatiquement
+
+# Header standard (scripts / API)
 curl -H "Authorization: Bearer $KEY" http://127.0.0.1:8000/status
 
 # Header alternatif
 curl -H "X-EVA-Key: $KEY" http://127.0.0.1:8000/status
 
-# Query param (SSE uniquement — voir /chat/stream)
+# Query param (SSE backward compat)
 curl -N "http://127.0.0.1:8000/chat/stream?message=Bonjour&api_key=$KEY"
 ```
 
@@ -114,13 +139,153 @@ HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Bearer
 
 {
-  "detail": "Clé API requise. Header : Authorization: Bearer <key>"
+  "detail": "Cle API manquante ou invalide."
 }
 ```
 
 ---
 
 ## 3. Endpoints
+
+### POST /auth/login
+
+**Public (pas d'auth requise) — Rate limited.**
+
+Valide la clé API et crée une session. Le cookie `eva_session` est positionné automatiquement.
+La session expire après 24h. Utiliser `POST /auth/logout` pour la révoquer explicitement.
+
+#### Requête
+
+```bash
+KEY=$(eva --print-api-key)
+curl -c cookies.txt -X POST http://127.0.0.1:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "'"$KEY"'"}'
+```
+
+#### Corps de la requête
+
+```json
+{"api_key": "votre_cle_api"}
+```
+
+#### Réponse 200
+
+```json
+{"status": "ok"}
+```
+
+Header de réponse :
+```
+Set-Cookie: eva_session=<token>; HttpOnly; Path=/; SameSite=strict; Max-Age=86400
+```
+
+#### Codes de réponse
+
+| Code | Description                        |
+| ---- | ---------------------------------- |
+| 200  | Session créée — cookie positionné  |
+| 401  | Clé API invalide                   |
+| 429  | Rate limit dépassé                 |
+| 503  | Service non initialisé             |
+
+---
+
+### POST /auth/logout
+
+**Public — aucune auth requise.**
+
+Révoque la session active et supprime le cookie `eva_session`.
+
+#### Requête
+
+```bash
+curl -b cookies.txt -X POST http://127.0.0.1:8000/auth/logout
+```
+
+#### Réponse 200
+
+```json
+{"status": "ok"}
+```
+
+---
+
+### POST /auth/register
+
+**Auth requise (session admin) — Rate limited.**
+
+Crée un nouveau compte utilisateur. Nécessite une session administrateur authentifiée.
+La clé API seule (sans session) est refusée après le bootstrap du premier admin.
+
+Pour créer le premier admin, utiliser `eva --create-admin` en ligne de commande.
+
+#### Requête
+
+```bash
+curl -b cookies.txt -X POST http://127.0.0.1:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "password": "motdepasse123", "role": "user"}'
+```
+
+#### Corps de la requête
+
+```json
+{
+  "username": "alice",
+  "password": "motdepasse123",
+  "role": "user"
+}
+```
+
+| Champ      | Type     | Requis | Description                        |
+| ---------- | -------- | ------ | ---------------------------------- |
+| `username` | `string` | Oui    | Nom d'utilisateur unique           |
+| `password` | `string` | Oui    | Mot de passe (min 8 caractères)    |
+| `role`     | `string` | Non    | `"user"` (défaut) ou `"admin"`     |
+
+#### Codes de réponse
+
+| Code | Description                                           |
+| ---- | ----------------------------------------------------- |
+| 200  | Compte créé                                           |
+| 401  | Session admin requise (api-key seule refusée)         |
+| 409  | Nom d'utilisateur déjà pris                           |
+| 422  | Validation échouée (champs manquants, mot de passe)   |
+| 429  | Rate limit dépassé                                    |
+
+---
+
+### GET /me
+
+**Auth requise.**
+
+Retourne les informations du compte authentifié (via cookie session ou Bearer).
+
+#### Requête
+
+```bash
+curl -b cookies.txt http://127.0.0.1:8000/me
+```
+
+#### Réponse 200
+
+```json
+{
+  "id": 1,
+  "username": "admin",
+  "role": "admin"
+}
+```
+
+#### Codes de réponse
+
+| Code | Description                     |
+| ---- | ------------------------------- |
+| 200  | Informations compte             |
+| 401  | Non authentifié                 |
+
+---
 
 ### GET /health
 
@@ -319,8 +484,18 @@ data: {"message": "Erreur lors du traitement."}
 
 #### Authentification avec EventSource (navigateur)
 
-L'API Web EventSource du navigateur ne supporte pas les headers customs.
-La clé doit passer en query param :
+**Phase 6(A) — méthode recommandée** : après `POST /auth/login`, le cookie `eva_session`
+est envoyé automatiquement par le navigateur avec chaque requête EventSource.
+Aucun `?api_key=` n'est nécessaire :
+
+```javascript
+// Après login (cookie eva_session positionné)
+const params = new URLSearchParams({ message: "Bonjour EVA" });
+const es = new EventSource(`/chat/stream?${params}`);
+// Le cookie est envoyé automatiquement par le navigateur
+```
+
+**Backward compat — query param** (curl, clients sans cookies) :
 
 ```javascript
 const API_KEY = "votre_clé_ici";
@@ -632,21 +807,24 @@ for event in client.events():
 
 ---
 
-## 7. Non-goals Phase 4
+## 7. Non-goals / Roadmap
 
-Ces fonctionnalités sont hors scope Phase 4 et prévues pour Phase 5+ :
-
-| Feature                       | Raison du report                                   |
-| ----------------------------- | -------------------------------------------------- |
-| HTTPS / TLS                   | Localhost-only — TLS sans CA = overhead sans gain  |
-| Exposition `0.0.0.0`          | Après validation complète du modèle auth (Phase 5) |
-| Session / cookie httpOnly     | Pas d'authentification multi-utilisateur Phase 4   |
-| X-Forwarded-For (proxy trust) | Pas d'exposition réseau Phase 4                    |
-| Rate limit Redis / persistant | In-memory suffisant pour local-only                |
-| WebSocket                     | SSE couvre les besoins Phase 4                     |
-| Streaming natif Ollama        | Phase 5 — remplacera le FAKE STREAM actuel         |
+| Feature                         | Statut                                                     |
+| ------------------------------- | ---------------------------------------------------------- |
+| HTTPS / TLS                     | ✅ DONE Phase 6(B) — `eva --api --tls`                     |
+| Session / cookie httpOnly       | ✅ DONE Phase 6(A) — `SessionManager`, login overlay       |
+| Multi-utilisateurs              | ✅ DONE Phase 6(D) — UserStore SQLite, PBKDF2              |
+| Rate limit auth endpoints       | ✅ DONE Phase 6(D.1)                                       |
+| Isolation conversations         | ✅ DONE Phase 6(D.1) — `_resolve_conv_id()` namespacing    |
+| Streaming natif Ollama          | ✅ DONE Phase 5(A) — `process_stream()`, bridge Queue      |
+| Métriques temps réel            | ✅ DONE Phase 5(C) — `GET /metrics`                        |
+| Exposition `0.0.0.0`            | ⏳ Phase 6(C) — avec CORS configurable + TLS               |
+| Désactivation Swagger prod      | ⏳ Phase 6(C)                                              |
+| X-Forwarded-For (proxy trust)   | ⏳ Phase 6(C) — après exposition réseau                    |
+| Rate limit Redis / persistant   | Non prioritaire (local-only suffisant)                     |
+| WebSocket                       | Non prioritaire (SSE couvre les besoins)                   |
 
 ---
 
-_Documentation générée pour EVA Phase 5(C) — R-052_
+_Documentation générée pour EVA Phase 6(D.1)_
 _Dernière mise à jour : 2026-03-01_

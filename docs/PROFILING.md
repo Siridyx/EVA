@@ -8,14 +8,14 @@
 
 ## 1. Environnement
 
-| Paramètre | Valeur |
-|---|---|
-| OS | Windows 11 Pro 10.0.26200 |
-| Python | 3.9.13 |
-| Machine | Intel/AMD x86-64 (bureau) |
-| Modèle LLM (bench réel) | llama3.2:latest (Ollama 11434) |
-| Modèle LLM (profiling) | Mock (réponse fixe, sans réseau) |
-| EVA version | 0.3.0 |
+| Paramètre               | Valeur                           |
+| ----------------------- | -------------------------------- |
+| OS                      | Windows 11 Pro 10.0.26200        |
+| Python                  | 3.9.13                           |
+| Machine                 | Intel/AMD x86-64 (bureau)        |
+| Modèle LLM (bench réel) | llama3.2:latest (Ollama 11434)   |
+| Modèle LLM (profiling)  | Mock (réponse fixe, sans réseau) |
+| EVA version             | 0.3.0                            |
 
 ---
 
@@ -83,12 +83,12 @@ python tools/bench_api.py --key "$KEY" [--skip-chat]
 
 ### 4.1 Sous-timings par étape (N=100 appels)
 
-| Étape | Temps moyen | % pipeline |
-|---|---|---|
-| **conversation_turn_complete** | **3.778 ms** | 99.7% |
-| llm_complete (mock seulement) | 0.030 ms | 0.8% |
-| Temps total / appel | **3.789 ms** | 100% |
-| memory_add events | 2 events/appel | — |
+| Étape                          | Temps moyen    | % pipeline |
+| ------------------------------ | -------------- | ---------- |
+| **conversation_turn_complete** | **3.778 ms**   | 99.7%      |
+| llm_complete (mock seulement)  | 0.030 ms       | 0.8%       |
+| Temps total / appel            | **3.789 ms**   | 100%       |
+| memory_add events              | 2 events/appel | —          |
 
 > Le pipeline CPU complet (hors LLM réel) = **3.79 ms/appel** sur cette machine.
 > Avec LLM Ollama réel : latence totale dominée par l'inférence (100–5000ms).
@@ -144,11 +144,11 @@ Throughput mock : 263.9 appels/sec
 > Les valeurs ci-dessous sont des estimations basées sur llama3.2:latest (2GB, quantisé 4bits)
 > sur machine de développement locale. À reproduire avec `tools/bench_api.py`.
 
-| Endpoint | p50 | p95 | max | Notes |
-|---|---|---|---|---|
-| `GET /health` | ~4 ms | ~8 ms | ~15 ms | Public, aucune auth |
-| `GET /status` | ~5 ms | ~10 ms | ~20 ms | Auth + state check |
-| `POST /chat` | ~1500 ms | ~3500 ms | ~8000 ms | Ollama llama3.2 |
+| Endpoint                | p50      | p95      | max      | Notes                    |
+| ----------------------- | -------- | -------- | -------- | ------------------------ |
+| `GET /health`           | ~4 ms    | ~8 ms    | ~15 ms   | Public, aucune auth      |
+| `GET /status`           | ~5 ms    | ~10 ms   | ~20 ms   | Auth + state check       |
+| `POST /chat`            | ~1500 ms | ~3500 ms | ~8000 ms | Ollama llama3.2          |
 | `GET /chat/stream` TTFT | ~1500 ms | ~3500 ms | ~8000 ms | Temps jusqu'au 1er token |
 
 **Note** : `GET /health` et `GET /status` ont des latences inférieures à 10 ms
@@ -173,6 +173,7 @@ json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
 
 **Justification** : `json.dump()` représente 50.9% du temps pipeline CPU.
 Le format compact réduit :
+
 - La taille du fichier (économies I/O sur le write et le mkstemp)
 - Le travail de l'encodeur JSON (moins de caractères à produire)
 
@@ -203,6 +204,7 @@ Sur localhost, le gain est modeste (~1–3 ms) mais systématique.
 Session fermée proprement dans `_do_stop()`.
 
 **Safety** :
+
 - Tests utilisent `self._transport` (mock) — branche production non atteinte en test
 - `requests.Session` est thread-safe via urllib3 PoolManager
 
@@ -225,9 +227,10 @@ Nécessite un mécanisme de récupération ou un journal (WAL) — hors scope Ph
 Les syscalls Windows représentent 0.109 ms/appel.
 
 **Solutions possibles** :
+
 - Remplacer `tempfile.mkstemp() + rename` par un write direct avec backup
 - Utiliser un écrivain asynchrone (thread séparé) — complexité accrue
-**Non appliqué** : comportement acceptable pour les volumes Phase 4.
+  **Non appliqué** : comportement acceptable pour les volumes Phase 4.
 
 ### Opt 5 — Cache de contexte mémoire
 
@@ -275,5 +278,5 @@ python tools/bench_api.py --key "$KEY" --with-stream  # inclut SSE TTFT
 
 ---
 
-*Rapport généré pour EVA Phase 4(G) — R-044*
-*Date : 2026-02-28*
+_Rapport généré pour EVA Phase 4(G) — R-044_
+_Date : 2026-02-28 | Dernière révision : 2026-03-01 (Phase 6(D.1) — aucun impact sur les métriques de profiling)_

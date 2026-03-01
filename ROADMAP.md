@@ -3,8 +3,8 @@
 Feuille de route du projet EVA (Assistant IA Personnel).
 
 **Version** : 0.3.0
-**Dernière mise à jour** : 2026-02-28
-**Phase actuelle** : Phase 4 (Packaging + CI/CD) — en cours
+**Dernière mise à jour** : 2026-03-01
+**Phase actuelle** : Phase 6 (Sécurité & Distribution) — 75% complétée
 
 ---
 
@@ -21,16 +21,23 @@ Créer un assistant IA personnel :
 
 ## 📊 Progression Globale
 
-| Phase     | Statut  | Progression | Tests | Durée  |
-| --------- | ------- | ----------- | ----- | ------ |
-| Phase 0   | ✅ DONE | 100% (8/8)  | 96    | 2.5s   |
-| Phase 1   | ✅ DONE | 100% (7/7)  | 216   | 10.35s |
-| Phase 1.1 | ✅ DONE | 100% (4/4)  | 216   | 10.35s |
-| Phase 2   | ✅ DONE | 100% (6/6)  | 356   | ~26s   |
-| Phase 3   | ✅ DONE | 100% (4/4)  | 495   | ~15s   |
-| Phase 4   | ✅ DONE | 100% (10/10) | 515   | ~8min  |
+| Phase     | Statut      | Progression  | Tests | Durée  |
+| --------- | ----------- | ------------ | ----- | ------ |
+| Phase 0   | ✅ DONE     | 100% (8/8)   | 96    | 2.5s   |
+| Phase 1   | ✅ DONE     | 100% (7/7)   | 216   | 10.35s |
+| Phase 1.1 | ✅ DONE     | 100% (4/4)   | 216   | 10.35s |
+| Phase 2   | ✅ DONE     | 100% (6/6)   | 356   | ~26s   |
+| Phase 3   | ✅ DONE     | 100% (4/4)   | 495   | ~15s   |
+| Phase 4   | ✅ DONE     | 100% (10/10) | 515   | ~8min  |
+| Phase 5   | ✅ DONE     | 100% (4/4)   | 560   | ~8min  |
+| Phase 6   | 🔄 EN COURS | 75% (3/4)    | 738   | ~8min  |
+| Phase 7   | ⏳ VISION   | 0% (0/4)     | —     | —      |
+| Phase 8   | ⏳ VISION   | 0% (0/4)     | —     | —      |
+| Phase 9   | ⏳ VISION   | 0% (0/4)     | —     | —      |
+| Phase 10  | ⏳ VISION   | 0% (0/4)     | —     | —      |
+| Phase 11  | ⏳ VISION   | 0% (0/4)     | —     | —      |
 
-**Total items complétés** : 40/40 (100%)
+**Total items complétés** : 47/68 (69%) — 21 items restants jusqu'à la vision complète
 
 ---
 
@@ -197,11 +204,11 @@ EVA> Merci !
 
 ### Dettes P2 (Quality of Life)
 
-- DEBT-004 : Network guard pytest (R-045)
-- DEBT-005 : Pytest markers unit/integration (R-045)
-- DEBT-006 : Provider Groq (cloud gratuit)
-- DEBT-007 : Provider Anthropic (Claude)
-- DEBT-003 : Test hardening avancé
+- DEBT-004 : Network guard pytest (R-045) ✅ DONE (Phase 4(D))
+- DEBT-005 : Pytest markers unit/integration (R-045) ✅ DONE (Phase 4(D))
+- DEBT-006 : Provider Groq (cloud gratuit) ✅ DONE (Phase 5 ext.)
+- DEBT-007 : Provider Anthropic (Claude) ✅ DONE (Phase 5 ext.)
+- DEBT-003 : Test hardening avancé ✅ DONE (Phase 4(D))
 
 ---
 
@@ -439,9 +446,327 @@ Objectif : projet publiable.
   - **Opt 2 appliquée** : `ollama_provider.py` — `requests.Session()` lazy → TCP keepalive, ~1-3ms/appel
   - Résultats : pipeline CPU = 3.79ms/appel (sans LLM) — `_save_session()` = 96.8% dominant
 
-**Statut** : 9/10 items (90%) — Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) ✅
+**Statut** : 10/10 items (100%) ✅ — Phase 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) + 4(G)
 **Tests** : 515 passed (~8min)
 **Dépendances** : Toutes phases précédentes
+
+---
+
+## PHASE 5 — STREAMING, MÉMOIRE & OBSERVABILITÉ (P5) ✅ (100% complété)
+
+Objectif : EVA en production locale — streaming natif, mémoire intelligente, métriques temps réel.
+
+### Phase 5(A) — Streaming natif Ollama ✅ VALIDÉ
+
+- [x] [P5][M][done] R-050 — Streaming natif Ollama (deps: R-031, R-042c) ✅ VALIDÉ
+  - `process_stream()` dans `EVAEngine` : génération token par token via Ollama API (`stream=True`)
+  - Bridge `asyncio.Queue` : thread-safe entre thread requests et coroutine FastAPI
+  - `GET /chat/stream` : vrai streaming Ollama (remplace le FAKE STREAM de Phase 4(C))
+  - Protocole SSE inchangé : `event:meta` → `event:token` (N) → `event:done` | `event:error`
+  - Backward compat : `/chat` (non-streaming) inchangé — R-031 LOCKED respecté
+
+### Phase 5(B) — Mémoire enrichie ✅ VALIDÉ
+
+- [x] [P5][M][done] R-051 — Résumé automatique mémoire (deps: R-011, R-014) ✅ VALIDÉ
+  - `maybe_summarize(llm_fn)` dans `MemoryManager` : résumé automatique déclenché à seuil configurable
+  - Seuil configurable : `memory.summarize_threshold` dans `config.yaml`
+  - `llm_fn` injecté : aucun couplage MemoryManager → LLMClient (injection explicite ADR-006)
+
+### Phase 5(C) — Observabilité R-052 ✅ VALIDÉ
+
+- [x] [P5][M][done] R-052 — Métriques & observabilité (deps: R-031, R-050) ✅ VALIDÉ
+  - `MetricsCollector` : compteurs in-memory (requêtes, tokens, erreurs, latences p50/p95/p99)
+  - `GET /metrics` : endpoint public — format JSON — métriques temps réel
+  - `event:done` enrichi : `tokens`, `latency_ms`, `ttft_ms` (Time To First Token)
+  - `EvaState.metrics_collector` : état partagé module-level (pattern identique key_manager)
+
+### Phase 5(D) — UX Clients ✅ VALIDÉ
+
+- [x] [P5][S][done] R-053 — UX / Clients web (deps: R-052, R-032) ✅ VALIDÉ
+  - Badge perf dans header web : latence p95 actualisée toutes les 30s via `pollMetrics()`
+  - `.msg-meta` : TTFT + latence totale affichés sous chaque réponse EVA
+  - Styles CSS cohérents avec thème dark cyan
+
+### Phase 5 (ext.) — Providers LLM supplémentaires ✅ VALIDÉ
+
+- [x] [P5][M][done] GeminiProvider — Google Gemini REST v1beta ✅ VALIDÉ
+  - API REST `generativelanguage.googleapis.com/v1beta`, env `GEMINI_API_KEY`
+  - `gemini-2.0-flash` / `gemini-1.5-pro` / `gemini-1.5-flash` configurables
+  - Commit : `9a34cf9`
+- [x] [P5][M][done] GroqProvider — Groq Cloud (OpenAI-compatible) ✅ VALIDÉ
+  - API OpenAI-compatible `api.groq.com/openai/v1`, env `GROQ_API`
+  - `llama3-8b-8192` / `llama3-70b-8192` / `mixtral-8x7b-32768`
+  - 17 tests (smoke, streaming, invalid model, network guard)
+  - Commit : `951bfe0`
+- [x] [P5][M][done] AnthropicProvider — Anthropic Messages API ✅ VALIDÉ
+  - Messages API `api.anthropic.com/v1/messages`, env `ANTHROPIC_API_KEY`
+  - `claude-3-5-sonnet-20241022` / `claude-3-haiku-20240307`
+  - SSE streaming via `content_block_delta`
+  - 21 tests
+  - Commit : `951bfe0`
+- [x] [P5][XS][done] OpenAIProvider fix — model override + stream() + validation ✅ VALIDÉ
+  - Commit : `86adfb4`
+
+**Statut** : 4/4 items (100%) ✅ + 4 providers extra ✅
+**Tests** : 624 passed (~8min)
+**Dépendances** : Phase 4 complète
+
+---
+
+## PHASE 6 — SÉCURITÉ & DISTRIBUTION (P6) 🔄 (en cours)
+
+Objectif : EVA sécurisé pour usage réseau — sessions, TLS, exposition contrôlée, multi-utilisateurs.
+
+### Phase 6(A) — Session HttpOnly Cookie Auth ✅ VALIDÉ (2026-03-01)
+
+- [x] [P6][M][done] R-060 — Session HttpOnly Cookie Auth (deps: R-042b) ✅ VALIDÉ
+  - **Problème corrigé** : clé API exposée en clair dans HTML (`__API_KEY__`) et URLs (`?api_key=`)
+  - `SessionManager` dans `eva/api/security.py` : sessions TTL 24h, `secrets.token_urlsafe(32)`, cleanup paresseux
+  - `POST /auth/login` : valide la clé API, émet cookie `eva_session` (HttpOnly, SameSite=Strict)
+  - `POST /auth/logout` : révoque la session, supprime le cookie
+  - `require_api_key` : cookie d'abord → Bearer → X-EVA-Key (backward compat API clients)
+  - `chat_stream` (SSE) : EventSource navigateur envoie les cookies automatiquement → clé jamais en URL
+  - Web UI : login overlay, `tryAutoLogin()` via GET /status 200, `startApp()` après authentification
+  - `_SECURITY_HEADERS` : `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`
+  - 7 nouveaux tests (login valide/invalide/503, session cookie accepté, logout, overlay, pas d'injection clé)
+  - Commit : `9f7c009`
+
+### Phase 6(B) — HTTPS / TLS ✅ VALIDÉ (2026-03-01)
+
+- [x] [P6][M][done] R-061 — HTTPS / TLS local (deps: R-060) ✅ VALIDÉ
+  - `CertManager` : certificat auto-signé (RSA 2048) généré au 1er lancement dans `eva/data/certs/`
+  - `eva --api --tls` + `eva --web --tls` : uvicorn avec `ssl_keyfile` + `ssl_certfile`
+  - Cookie `eva_session` : `Secure=True` activé automatiquement en mode TLS
+  - Boot output : URL HTTPS affichée (`https://127.0.0.1:8000`)
+  - Commit : `acbff6a`
+
+### Phase 6(C) — Exposition réseau ⏳ (prévu)
+
+- [ ] [P6][S][todo] R-062 — Exposition réseau 0.0.0.0 (deps: R-061) ⏳ PRÉVU
+  - `eva --api --host 0.0.0.0` : écoute toutes les interfaces (LAN/VPN)
+  - CORS configurable : `api.allowed_origins` dans `config.yaml`
+  - Avertissement si 0.0.0.0 sans TLS
+  - Rate limit par IP maintenu (`RateLimiter` déjà en place)
+  - Désactivation Swagger UI en mode production (Phase 6(C))
+
+### Phase 6(D) — Multi-utilisateurs ✅ VALIDÉ (2026-03-01)
+
+- [x] [P6][L][done] R-063 — Multi-utilisateurs (deps: R-060) ✅ VALIDÉ
+  - `UserStore` (SQLite `data/users/users.db`) : PBKDF2-HMAC-SHA256 + sel 256 bits
+  - `POST /auth/register` : création de compte (admin uniquement après bootstrap)
+  - `GET /me` : infos compte authentifié
+  - `eva --create-admin` : bootstrap premier admin en mode interactif
+  - Sessions enrichies : `SessionManager.get_user_id()` retourne l'ID utilisateur
+  - Permissions : `admin` (gestion comptes) | `user` (chat)
+  - Commit : `cfdaa31`
+
+### Phase 6(D.1) — Hardening multi-user ✅ VALIDÉ (2026-03-01)
+
+- [x] [P6][M][done] R-063b — Hardening (deps: R-063) ✅ VALIDÉ
+  - **Rate limit sur endpoints auth** : `check_rate_limit` sur `POST /auth/login` et `POST /auth/register`
+  - **Isolation conversations** : `_resolve_conv_id()` — namespacing `user:<id>:<uuid>`, 403 si ID inter-utilisateur
+  - **Politique register** : après bootstrap, api-key-only refuse la création (requiert session admin authentifiée)
+  - **Boot output** : plus d'URL `/docs`/`/redoc` au démarrage ; `eva --print-api-urls` pour dev
+  - **Secret hors stdout** : clé API affichée `(set)` au lieu de la valeur en clair ; `eva --print-api-key` pour voir la clé
+  - 7 tests (rate limit login/register, policy register, isolation conversations)
+  - 17 tests boot output (no /docs URL, no /redoc URL, no secret in stdout)
+  - Commits : `659fb79` `6098a0d` `75981a3`
+
+**Statut** : 3/4 items (75%) 🔄 — Phase 6(A) ✅ Phase 6(B) ✅ Phase 6(D) ✅ Phase 6(D.1) ✅ | Phase 6(C) ⏳
+**Tests** : 738 passed (~8min)
+**Dépendances** : Phase 5 complète
+
+---
+
+## PHASE 7 — AUTONOMIE (P7) ⏳ VISION
+
+Objectif : EVA agit sans que tu tapes — planifie, observe, exécute, notifie.
+
+### Phase 7(A) — Scheduler + triggers ⏳
+
+- [ ] [P7][M][todo] R-070 — Scheduler de tâches (deps: R-006) ⏳
+  - `eva/scheduler/` : stockage tâches (JSON dans `data/scheduler/`)
+  - Déclencheurs : temporel (cron-like), événement (EventBus), seuil (métriques)
+  - `eva --scheduler` : démarrage du worker background
+  - API : `POST /tasks` (créer), `GET /tasks` (lister), `DELETE /tasks/{id}` (supprimer)
+
+### Phase 7(B) — Context probes ⏳
+
+- [ ] [P7][M][todo] R-071 — Probes de contexte (deps: R-070) ⏳
+  - `eva/probes/` : modules d'observation passifs
+  - GitProbe : surveille les commits, branches, diff
+  - MetricsProbe : seuils sur `GET /metrics` (latence, erreurs)
+  - FileProbe : surveille des fichiers/dossiers (changements)
+  - Probes injectées dans le scheduler comme déclencheurs
+
+### Phase 7(C) — Background worker ⏳
+
+- [ ] [P7][M][todo] R-072 — Worker autonome (deps: R-070, R-071) ⏳
+  - Worker asyncio long-running : exécute les tâches planifiées
+  - Appelle `EVAEngine.process()` avec un prompt généré automatiquement
+  - Résultat stocké dans `data/scheduler/results/`
+  - Reprise sur erreur : retry configurable, max_retries
+
+### Phase 7(D) — Notifications push ⏳
+
+- [ ] [P7][S][todo] R-073 — Notifications (deps: R-072) ⏳
+  - SSE push vers la web UI ouverte : `event:notification`
+  - Résumé quotidien généré par EVA (ex : "Voici ce que j'ai fait aujourd'hui")
+  - Webhook optionnel (Discord / Slack / HTTP) configurable dans `config.yaml`
+
+**Statut** : 0/4 items — VISION
+**Dépendances** : Phase 6 complète
+
+---
+
+## PHASE 8 — INTELLIGENCE AVANCÉE (P8) ⏳ VISION
+
+Objectif : EVA devient plus smart — choisit ses outils, retient plus, se connaît elle-même.
+
+### Phase 8(A) — Multi-model routing ⏳
+
+- [ ] [P8][M][todo] R-080 — Routing intelligent (deps: R-012) ⏳
+  - Sélection du modèle selon la tâche (chat léger vs code vs analyse)
+  - `router.yaml` : règles de routing (mots-clés, longueur, type)
+  - Fallback automatique si modèle indisponible
+
+### Phase 8(B) — Mémoire long-terme persistante ⏳
+
+- [ ] [P8][L][todo] R-081 — Mémoire persistante cross-session (deps: R-011, R-024) ⏳
+  - Survit aux redémarrages : SQLite dans `data/memory/longterm.db`
+  - Fusion mémoire vectorielle + mémoire conversationnelle
+  - `MemoryManager.persist()` / `MemoryManager.restore()` au lifecycle
+
+### Phase 8(C) — Auto-analyse ⏳
+
+- [ ] [P8][M][todo] R-082 — EVA analyse ses propres logs (deps: R-071, R-072) ⏳
+  - EVA lit ses logs d'erreur et propose des corrections
+  - Rapport hebdomadaire auto-généré : patterns d'usage, anomalies
+  - Base pour auto-amélioration future
+
+### Phase 8(D) — Planning multi-étapes ⏳
+
+- [ ] [P8][L][todo] R-083 — AgentBase étendu (deps: R-021b, R-070) ⏳
+  - Plans persistants multi-jours (goal + étapes stockées)
+  - Integration scheduler : chaque étape = une tâche planifiée
+  - `GET /agent/plan` : état du plan courant
+
+**Statut** : 0/4 items — VISION
+**Dépendances** : Phase 7 complète
+
+---
+
+## PHASE 9 — IDENTITÉ & UX (P9) ⏳ VISION
+
+Objectif : EVA a une personnalité, une belle interface, une voix.
+
+### Phase 9(A) — Personnalité configurable ⏳
+
+- [ ] [P9][M][todo] R-090 — Identité EVA (deps: R-013) ⏳
+  - Nom, ton, valeurs configurables dans `config.yaml`
+  - Persona injectée dans le system prompt
+  - EVA peut se présenter, expliquer ses capacités
+
+### Phase 9(B) — Interface web riche ⏳
+
+- [ ] [P9][L][todo] R-091 — Web UI 2.0 (deps: R-032) ⏳
+  - Settings panel (modèle, personnalité, thème)
+  - Historique des conversations (liste + recherche)
+  - Vue tâches planifiées (scheduler Phase 7)
+  - Thèmes : dark cyan (actuel) + light + custom
+
+### Phase 9(C) — Interface vocale ⏳
+
+- [ ] [P9][L][todo] R-092 — Voice I/O optionnel (deps: R-091) ⏳
+  - STT : Whisper local (via Ollama ou whisper.cpp)
+  - TTS : pyttsx3 ou Coqui TTS local
+  - Push-to-talk dans la web UI
+  - Désactivable — jamais obligatoire
+
+### Phase 9(D) — CLI enrichi ⏳
+
+- [ ] [P9][S][todo] R-093 — CLI avancé P9 (deps: R-033) ⏳
+  - `eva task add "..."` : créer une tâche planifiée
+  - `eva memory search "..."` : chercher dans la mémoire
+  - `eva agent start "goal"` : lancer un agent autonome
+  - Autocomplétion étendue
+
+**Statut** : 0/4 items — VISION
+**Dépendances** : Phase 8 complète
+
+---
+
+## PHASE 10 — DISTRIBUTION (P10) ⏳ VISION
+
+Objectif : EVA quitte ton PC — app installable, accessible de partout.
+
+### Phase 10(A) — App installable ⏳
+
+- [ ] [P10][XL][todo] R-100 — Packaging GUI (deps: Phase 9) ⏳
+  - PyInstaller / Nuitka : binaire standalone (Windows + Linux)
+  - Installeur (NSIS / .deb) : EVA s'installe comme une vraie app
+  - Icône, splash screen, intégration OS
+
+### Phase 10(B) — Cloud tunnel ⏳
+
+- [ ] [P10][M][todo] R-101 — Exposition cloud intégrée (deps: R-062) ⏳
+  - `eva --tunnel` : tunnel Cloudflare ou ngrok intégré (zero-config)
+  - URL publique stable (avec auth session EVA)
+  - QR code affiché au démarrage pour accès mobile
+
+### Phase 10(C) — Sync multi-device ⏳
+
+- [ ] [P10][L][todo] R-102 — Sync mémoire (deps: R-081) ⏳
+  - Mémoire long-terme optionnellement synced (S3 / Backblaze / self-hosted)
+  - Même EVA sur PC, phone, tablet — même mémoire
+  - Chiffrement côté client avant upload
+
+### Phase 10(D) — Marketplace plugins ⏳
+
+- [ ] [P10][XL][todo] R-103 — Ecosystem plugins (deps: R-015) ⏳
+  - Store plugins EVA : catalogue + installation en 1 commande
+  - API plugins : contrat versionné stable
+  - Plugin signature (sécurité)
+
+**Statut** : 0/4 items — VISION
+**Dépendances** : Phase 9 complète
+
+---
+
+## PHASE 11 — COMMERCIALISATION (P11) ⏳ VISION
+
+Objectif : EVA devient un produit que d'autres peuvent utiliser et payer.
+
+### Phase 11(A) — Infrastructure SaaS ⏳
+
+- [ ] [P11][XL][todo] R-110 — Déploiement serveur (deps: Phase 10) ⏳
+  - Dockerfile + docker-compose : EVA containerisée
+  - Déploiement VPS (Hetzner / OVH) ou PaaS (Railway / Fly.io)
+  - Health checks, restart policies, monitoring
+
+### Phase 11(B) — Licences & billing ⏳
+
+- [ ] [P11][XL][todo] R-111 — Système de licences (deps: R-110) ⏳
+  - Clé de licence (activation offline ou online)
+  - Plans : Personal (gratuit) / Pro (payant) / Enterprise
+  - Stripe ou LemonSqueezy pour paiements
+
+### Phase 11(C) — Dashboard admin commercial ⏳
+
+- [ ] [P11][L][todo] R-112 — Dashboard admin (deps: R-111) ⏳
+  - Interface admin web : gestion utilisateurs, métriques, licences
+  - Alertes : usage anormal, expiration licence
+  - Export données (RGPD)
+
+### Phase 11(D) — Support & documentation utilisateur ⏳
+
+- [ ] [P11][M][todo] R-113 — Docs + support (deps: R-112) ⏳
+  - Site documentation public (MkDocs ou Docusaurus)
+  - Guide d'installation, FAQ, tutoriels vidéo
+  - Canal support (Discord ou email)
+
+**Statut** : 0/4 items — VISION
+**Dépendances** : Phase 10 complète
 
 ---
 
@@ -449,13 +774,13 @@ Objectif : projet publiable.
 
 | Métrique           | Valeur   | Objectif          |
 | ------------------ | -------- | ----------------- |
-| **Tests totaux**   | 504      | 200+ (P2 complet) |
-| **Durée tests**    | ~25s     | <30s              |
+| **Tests totaux**   | 567      | 200+ (P2 complet) |
+| **Durée tests**    | ~8min    | <10min            |
 | **Coverage**       | ~95%     | > 90%             |
 | **Dettes P0**      | 0        | 0                 |
 | **Dettes P1**      | 0        | 0                 |
-| **Dettes P2**      | 8        | <10               |
-| **Phase actuelle** | P4 (60%) | P4 (100%)         |
+| **Dettes P2**      | 0        | 0                 |
+| **Phase actuelle** | P6 (25%) | P6 (100%)         |
 
 ---
 
@@ -495,19 +820,36 @@ Objectif : projet publiable.
 
 ## 🎯 Prochaines Étapes
 
-**Phase 4 COMPLÈTE** : 4(A) + 4(B) + 4(C) + 4(D) + 4(E) + 4(F) + 4(G) ✅
+**Phases complètes** : 0 + 1 + 1.1 + 2 + 3 + 4 + 5 ✅
 
-**Prochain jalon** : version 0.4.0 stable (tag git) + Phase 5 planification
+**Horizon immédiat — Phase 6 (en cours)** :
 
-**Phase 5 (prévisions)** :
-- Exposition réseau 0.0.0.0 sécurisée (après validation auth)
-- Streaming natif Ollama (remplace FAKE STREAM)
-- HTTPS / TLS pour exposition réseau
-- Rate limit Redis (persistant)
+| Étape | Focus | Statut |
+|-------|-------|--------|
+| 6(A)  | Session HttpOnly Cookie Auth | ✅ DONE |
+| 6(B)  | HTTPS / TLS local | ⏳ NEXT |
+| 6(C)  | Exposition réseau 0.0.0.0 | ⏳ |
+| 6(D)  | Multi-utilisateurs | ⏳ |
+
+**Horizon moyen — Phase 7 (Autonomie)** :
+
+EVA agit sans que tu tapes.
+Scheduler → probes contexte → worker background → notifications.
+
+**Horizon long — Phases 8 à 11** :
+
+| Phase | Nom | Essence |
+|-------|-----|---------|
+| 8 | Intelligence Avancée | EVA choisit, retient, s'analyse |
+| 9 | Identité & UX | EVA a une personnalité et une belle interface |
+| 10 | Distribution | EVA quitte ton PC |
+| 11 | Commercialisation | EVA devient un produit |
+
+**Principe** : on ne saute aucune étape. Chaque phase est le prérequis de la suivante.
 
 ---
 
-**Dernière modification** : 2026-02-28 (Phase 4(G) — Profiling performance R-044 — PHASE 4 COMPLÈTE)
+**Dernière modification** : 2026-03-01 (Phase 6(A) — Session HttpOnly Cookie Auth — commit 9f7c009)
 
 ## 🏗️ Principes Fondamentaux
 
@@ -616,25 +958,16 @@ Pour passer en DONE :
 
 ---
 
-## 📊 Métriques Globales
+## 📊 Métriques Globales (historique)
 
-| Métrique           | Valeur    | Objectif          |
-| ------------------ | --------- | ----------------- |
-| **Tests totaux**   | 216       | 150+ (P1 complet) |
-| **Durée tests**    | 10.35s    | <15s              |
-| **Coverage**       | ~95%      | > 90%             |
-| **Dettes P0**      | 0         | 0                 |
-| **Dettes P1**      | 0         | 0                 |
-| **Dettes P2**      | 5         | <10               |
-| **Phase actuelle** | P1 (100%) | P1 (100%)         |
-
----
-
-### Dettes P2 (Quality of Life)
-
-- DEBT-004 : Network guard pytest (R-045)
-- DEBT-005 : Pytest markers unit/integration (R-045)
-- DEBT-003 : Test hardening avancé (déjà trackée)
+| Phase | Tests | Durée  | Dettes |
+| ----- | ----- | ------ | ------ |
+| P1    | 216   | 10.35s | 5      |
+| P2    | 356   | ~26s   | 8      |
+| P3    | 495   | ~15s   | 3      |
+| P4    | 515   | ~8min  | 0      |
+| P5    | 560   | ~8min  | 0      |
+| P6(A) | 567   | ~8min  | 0      |
 
 ## ARBORESCENCE CIBLE
 
