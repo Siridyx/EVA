@@ -424,6 +424,53 @@ async def check_rate_limit(request: Request) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helpers isolation multi-user (Phase 6(D.1))
+# ---------------------------------------------------------------------------
+
+
+def _resolve_conv_id(request: Request, provided: Optional[str]) -> str:
+    """
+    Resout le conversation_id en appliquant l'isolation par utilisateur.
+
+    Regles :
+    - Session utilisateur authentifie (user_id present) :
+        * Prefixe attendu : "user:<user_id>:"
+        * Si le client fournit un ID sans ce prefixe -> 403 Forbidden
+        * Si aucun ID fourni -> genere "user:<user_id>:<uuid>"
+    - Connexion anonyme (api-key globale, pas de user_id) :
+        * Comportement legacy : ID fourni conserve, sinon uuid4()
+
+    Args:
+        request:  Requete HTTP FastAPI (pour lire le cookie eva_session).
+        provided: conversation_id fourni par le client (peut etre None).
+
+    Returns:
+        conversation_id resolu (jamais None).
+
+    Raises:
+        HTTPException 403 : ID fourni n'appartient pas a l'utilisateur courant.
+    """
+    session_id = request.cookies.get("eva_session", "")
+    user_id: Optional[int] = None
+    if session_id and _state.session_manager:
+        user_id = _state.session_manager.get_user_id(session_id)
+
+    if user_id is None:
+        # Connexion anonyme (api-key) : pas d'isolation
+        return provided or str(uuid.uuid4())
+
+    prefix = f"user:{user_id}:"
+    if provided:
+        if not provided.startswith(prefix):
+            raise HTTPException(
+                status_code=403,
+                detail="conversation_id invalide pour cet utilisateur.",
+            )
+        return provided
+    return prefix + str(uuid.uuid4())
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -601,7 +648,7 @@ async def status() -> StatusResponse:
         },
     },
 )
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     """
     Envoie un message à EVA et retourne la réponse structurée en JSON.
 
@@ -619,13 +666,13 @@ async def chat(request: ChatRequest) -> ChatResponse:
             detail="Moteur EVA non démarré. Utilisez /start ou relancez l'API.",
         )
 
-    # Générer un conversation_id si non fourni par le client
-    conv_id = request.conversation_id or str(uuid.uuid4())
+    # Isolation multi-user : namespace conversation_id par user_id (Phase 6(D.1))
+    conv_id = _resolve_conv_id(request, body.conversation_id)
 
     t0 = time.monotonic()
     try:
         response_text = await asyncio.to_thread(
-            _state.engine.process, request.message
+            _state.engine.process, body.message
         )
         latency_ms = int((time.monotonic() - t0) * 1000)
 
@@ -761,6 +808,9 @@ async def chat_stream(
             detail="Moteur EVA non démarré. Utilisez /start ou relancez l'API.",
         )
 
+    # Isolation multi-user : resoudre AVANT le generateur (HTTPException avant stream)
+    conv_id = _resolve_conv_id(request, conversation_id)
+
     async def _event_generator() -> AsyncGenerator[str, None]:
         """
         Generateur SSE — streaming natif OllamaProvider (Phase 5A).
@@ -768,7 +818,6 @@ async def chat_stream(
         Bridge sync generator (process_stream) -> async SSE via asyncio.Queue.
         Protocole : event:meta -> event:token* -> event:done | event:error
         """
-        conv_id = conversation_id or str(uuid.uuid4())
         t0 = time.monotonic()
 
         yield (
@@ -966,8 +1015,10 @@ def _set_session_cookie(response: Response, session_id: str) -> None:
         200: {"description": "Session creee. Cookie eva_session set."},
         400: {"description": "Corps de requete invalide."},
         401: {"description": "Credentials invalides."},
+        429: {"description": "Trop de tentatives — reessayez dans 60s."},
         503: {"description": "Service non initialise."},
     },
+    dependencies=[Depends(check_rate_limit)],
 )
 async def auth_login(body: LoginRequest, response: Response) -> dict:
     """
@@ -1025,9 +1076,10 @@ async def auth_login(body: LoginRequest, response: Response) -> dict:
         200: {"description": "Utilisateur cree."},
         400: {"description": "Donnees invalides ou username deja existant."},
         401: {"description": "Non authentifie ou role insuffisant."},
+        429: {"description": "Trop de tentatives — reessayez dans 60s."},
         503: {"description": "Service non initialise."},
     },
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_api_key), Depends(check_rate_limit)],
 )
 async def auth_register(body: RegisterRequest, request: Request) -> dict:
     """
@@ -1043,14 +1095,18 @@ async def auth_register(body: RegisterRequest, request: Request) -> dict:
     if _state.user_store.has_admin():
         session_id = request.cookies.get("eva_session", "")
         caller_user_id = _state.session_manager.get_user_id(session_id)
-        if caller_user_id is not None:
-            caller = _state.user_store.get_by_id(caller_user_id)
-            if caller is None or caller.role != UserRole.ADMIN:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Role admin requis pour creer un utilisateur.",
-                )
-        # Si caller_user_id est None : connexion api-key => admin implicite OK
+        # Apres bootstrap : api-key seule ne suffit plus — session user admin requise
+        if caller_user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Session utilisateur admin requise pour creer un compte.",
+            )
+        caller = _state.user_store.get_by_id(caller_user_id)
+        if caller is None or caller.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=401,
+                detail="Role admin requis pour creer un utilisateur.",
+            )
 
     # Valider le role
     try:

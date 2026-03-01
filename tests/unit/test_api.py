@@ -81,6 +81,8 @@ def reset_state():
         api_module._state.rate_limiter = None
         api_module._state.metrics_collector = None
         api_module._state.session_manager = None
+        api_module._state.user_store = None
+        api_module._state.tls = False
 
 
 @pytest.fixture
@@ -552,3 +554,188 @@ def test_auth_logout(client, mock_key_manager):
 
     # La session doit etre revoquee apres logout
     assert not api_module._state.session_manager.verify(session_id)
+
+
+# --- Tests Phase 6(D.1) — Hardening ---
+
+
+@requires_fastapi
+def test_auth_login_rate_limited(client, mock_key_manager):
+    """POST /auth/login -> 429 apres depassement du rate limit."""
+    from eva.api.security import RateLimiter, SessionManager
+
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.session_manager = SessionManager()
+    api_module._state.rate_limiter = RateLimiter(max_per_min=3)
+
+    # Les 3 premiers doivent passer (cle invalide = 401, mais pas 429)
+    for _ in range(3):
+        r = client.post("/auth/login", json={"api_key": "badkey"})
+        assert r.status_code == 401
+
+    # Le 4eme depasse la limite -> 429
+    r = client.post("/auth/login", json={"api_key": "badkey"})
+    assert r.status_code == 429
+
+
+@requires_fastapi
+def test_auth_register_rate_limited(client, mock_key_manager):
+    """POST /auth/register -> 429 apres depassement du rate limit."""
+    from eva.api.security import RateLimiter, SessionManager
+    from eva.api.users import UserStore
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        api_module._state.key_manager = mock_key_manager
+        api_module._state.session_manager = SessionManager()
+        api_module._state.rate_limiter = RateLimiter(max_per_min=2)
+        api_module._state.user_store = UserStore(Path(tmp))
+
+        # Vider le rate limiter puis consommer les slots
+        # 2 premiers : pass (auth via Bearer = require_api_key ok, rate_limiter ok)
+        for i in range(2):
+            r = client.post(
+                "/auth/register",
+                json={"username": f"u{i}", "password": "pass1234", "role": "user"},
+                headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+            )
+            # 200 ou 400 (pas d'admin) — l'important est != 429
+            assert r.status_code != 429
+
+        # 3eme : rate limit depasse -> 429
+        r = client.post(
+            "/auth/register",
+            json={"username": "u99", "password": "pass1234", "role": "user"},
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+        assert r.status_code == 429
+
+
+@requires_fastapi
+def test_register_api_key_only_refused_after_bootstrap(client, mock_key_manager):
+    """POST /auth/register via api-key seule refusee apres bootstrap (has_admin=True)."""
+    from eva.api.security import SessionManager
+    from eva.api.users import UserRole, UserStore
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        store = UserStore(Path(tmp))
+        store.create_user("admin", "adminpass1", UserRole.ADMIN)
+        api_module._state.key_manager = mock_key_manager
+        api_module._state.session_manager = SessionManager()
+        api_module._state.user_store = store
+
+        # Requete authentifiee via Bearer (api-key), sans cookie user session -> 401
+        r = client.post(
+            "/auth/register",
+            json={"username": "newuser", "password": "pass1234", "role": "user"},
+            headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        )
+        assert r.status_code == 401
+        assert "admin" in r.json()["detail"].lower()
+
+
+@requires_fastapi
+def test_register_admin_session_accepted_after_bootstrap(client, mock_key_manager):
+    """POST /auth/register avec session admin valide -> 200 apres bootstrap."""
+    from eva.api.security import SessionManager
+    from eva.api.users import UserRole, UserStore
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        store = UserStore(Path(tmp))
+        admin = store.create_user("admin", "adminpass1", UserRole.ADMIN)
+        sm = SessionManager()
+        session_id = sm.create(user_id=admin.id)
+
+        api_module._state.key_manager = mock_key_manager
+        api_module._state.session_manager = sm
+        api_module._state.user_store = store
+
+        r = client.post(
+            "/auth/register",
+            json={"username": "newuser", "password": "pass1234", "role": "user"},
+            cookies={"eva_session": session_id},
+        )
+        assert r.status_code == 200
+        assert r.json()["username"] == "newuser"
+
+
+@requires_fastapi
+def test_chat_conv_id_namespaced_for_authenticated_user(client, mock_engine, mock_key_manager):
+    """POST /chat avec user authentifie -> conversation_id prefixe user:<id>:."""
+    from eva.api.security import SessionManager
+    from eva.api.users import UserRole, UserStore
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        store = UserStore(Path(tmp))
+        user = store.create_user("alice", "alicepass1", UserRole.USER)
+        sm = SessionManager()
+        session_id = sm.create(user_id=user.id)
+
+        api_module._state.engine = mock_engine
+        api_module._state.key_manager = mock_key_manager
+        api_module._state.session_manager = sm
+        api_module._state.user_store = store
+
+        r = client.post(
+            "/chat",
+            json={"message": "Bonjour"},
+            cookies={"eva_session": session_id},
+        )
+        assert r.status_code == 200
+        conv_id = r.json()["conversation_id"]
+        assert conv_id.startswith(f"user:{user.id}:")
+
+
+@requires_fastapi
+def test_chat_conv_id_wrong_user_forbidden(client, mock_engine, mock_key_manager):
+    """POST /chat avec conversation_id d'un autre utilisateur -> 403."""
+    from eva.api.security import SessionManager
+    from eva.api.users import UserRole, UserStore
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        store = UserStore(Path(tmp))
+        alice = store.create_user("alice", "alicepass1", UserRole.USER)
+        bob = store.create_user("bob", "bobpass99", UserRole.USER)
+        sm = SessionManager()
+        alice_session = sm.create(user_id=alice.id)
+
+        api_module._state.engine = mock_engine
+        api_module._state.key_manager = mock_key_manager
+        api_module._state.session_manager = sm
+        api_module._state.user_store = store
+
+        # Alice tente d'utiliser un conv_id namespaced pour Bob -> 403
+        bob_conv_id = f"user:{bob.id}:some-uuid"
+        r = client.post(
+            "/chat",
+            json={"message": "Bonjour", "conversation_id": bob_conv_id},
+            cookies={"eva_session": alice_session},
+        )
+        assert r.status_code == 403
+
+
+@requires_fastapi
+def test_chat_conv_id_anonymous_free(client, mock_engine, mock_key_manager):
+    """POST /chat sans session utilisateur (api-key) -> conversation_id libre (legacy)."""
+    from eva.api.security import SessionManager
+
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.session_manager = SessionManager()
+
+    r = client.post(
+        "/chat",
+        json={"message": "Bonjour", "conversation_id": "mon-id-custom"},
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["conversation_id"] == "mon-id-custom"
