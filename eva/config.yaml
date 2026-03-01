@@ -49,6 +49,20 @@ llm:
       dev: "gemini-2.0-flash"       # Rapide, économique
       default: "gemini-2.0-flash"   # À changer si gemini-pro disponible
 
+  groq:
+    # Config Groq (si utilisé)
+    # Nécessite GROQ_API dans .env (variable : GROQ_API, pas GROQ_API_KEY)
+    models:
+      dev: "llama-3.1-8b-instant"       # Rapide, gratuit
+      default: "llama-3.3-70b-versatile" # Puissant
+
+  anthropic:
+    # Config Anthropic Claude (si utilisé)
+    # Nécessite ANTHROPIC_API_KEY dans .env
+    models:
+      dev: "claude-haiku-4-5-20251001"  # Rapide, économique
+      default: "claude-sonnet-4-6"       # Puissant
+
   timeout: 30
   max_retries: 3
   retry_delay: 1
