@@ -2,9 +2,9 @@
 
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
-Phase actuelle : Phase 4 — Qualité & Production (en cours)
-Statut global : Phase 3 ✅ — Phase 4 ✅ — Phase 5(A) ✅
-Dernière mise à jour : 2026-02-28
+Phase actuelle : Phase 5 — Observabilite & Intelligence (en cours)
+Statut global : Phase 3 ✅ — Phase 4 ✅ — Phase 5(A) ✅ — Phase 5(B) ✅ — Phase 5(C) ✅
+Dernière mise à jour : 2026-03-01
 
 ### 🎯 Objectif du Journal
 
@@ -1098,4 +1098,34 @@ Le resume utilise `profile="dev"` (modele leger) pour economiser les tokens.
 
 ---
 
-OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5(A) VALIDEE -- Phase 5(B) VALIDEE)
+---
+
+## Phase 5(C) — R-052 Observabilite
+
+**Date** : 2026-03-01
+**Objectif** : Ajouter une observabilite actionnable sur le chemin critique EVA (API -> engine -> LLM -> SSE) sans changer le contrat API (R-031 LOCKED).
+
+### Decisions techniques
+
+- **MetricsCollector in-memory** : `deque(maxlen=100)` par endpoint — stdlib uniquement, zero dependance externe, zero persistance disque.
+- **Pas d'EventBus** : les events LLM n'ont pas de correlation ID — tracking direct au niveau API boundary (t0, first_token_time dans `_event_generator()`).
+- **TTFT** : `first_token_time = time.monotonic()` capture au premier token sorti de `asyncio.Queue`, avant le yield SSE.
+- **event:done additif** : champs `ttft_ms`, `tokens`, `tokens_per_sec` ajoutes conditionnellement — R-031 LOCKED preserve, zero regression clients existants.
+- **GET /metrics** : meme dep `require_api_key` que `/status` — 200/401/503 — pas de rate limit (lecture seule).
+
+### Livraisons
+
+- Fichier cree : `eva/api/metrics.py` (MetricsCollector, RequestRecord)
+- Fichier cree : `tests/unit/test_metrics.py` (13 tests)
+- Fichiers modifies : `eva/api/app.py`, `tests/unit/test_api.py` (+4 tests), `tools/bench_api.py`, `docs/API.md`, `docs/CHANGELOG.md`
+- Tests : 558 passent (+17 vs 541), 0 regression
+- Nouvelles dependances : aucune
+
+### Validation
+
+- `pytest tests/unit/test_metrics.py tests/unit/test_api.py` : 35/35 passes
+- `pytest --tb=short -q` : 558 passed, 2 skipped, 27 xfailed, 4 xpassed, 0 failed
+
+---
+
+OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5(A) VALIDEE -- Phase 5(B) VALIDEE -- Phase 5(C) VALIDEE)

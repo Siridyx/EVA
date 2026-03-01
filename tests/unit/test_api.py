@@ -79,6 +79,7 @@ def reset_state():
         api_module._state.init_error = None
         api_module._state.key_manager = None
         api_module._state.rate_limiter = None
+        api_module._state.metrics_collector = None
 
 
 @pytest.fixture
@@ -397,3 +398,86 @@ def test_stream_exception_no_detail_leak(client, mock_engine, mock_key_manager):
     # L'événement error doit être émis avec un message générique
     assert "event: error" in r.text
     assert "Erreur lors du traitement" in r.text
+
+
+# --- Tests Phase 5(C) — /metrics + event:done TTFT ---
+
+
+@requires_fastapi
+def test_metrics_requires_auth_401(client, mock_key_manager):
+    """GET /metrics sans cle API -> 401."""
+    api_module._state.key_manager = mock_key_manager
+    r = client.get("/metrics")
+    assert r.status_code == 401
+
+
+@requires_fastapi
+def test_metrics_valid_auth_200(client, mock_key_manager):
+    """GET /metrics avec cle valide -> 200 + structure JSON attendue."""
+    from eva.api.metrics import MetricsCollector
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.metrics_collector = MetricsCollector()
+
+    r = client.get("/metrics", headers={"Authorization": f"Bearer {TEST_API_KEY}"})
+
+    assert r.status_code == 200
+    data = r.json()
+    assert "uptime_s" in data
+    assert "endpoints" in data
+    assert "chat" in data["endpoints"]
+    assert "chat_stream" in data["endpoints"]
+
+    chat = data["endpoints"]["chat"]
+    assert "requests" in chat
+    assert "p50_ms" in chat
+    assert "p95_ms" in chat
+
+    stream = data["endpoints"]["chat_stream"]
+    assert "p50_ttft_ms" in stream
+    assert "p95_ttft_ms" in stream
+
+
+@requires_fastapi
+def test_metrics_503_when_not_initialized(client, mock_key_manager):
+    """GET /metrics -> 503 si metrics_collector non initialise."""
+    api_module._state.key_manager = mock_key_manager
+    # metrics_collector reste None (reset_state)
+
+    r = client.get("/metrics", headers={"Authorization": f"Bearer {TEST_API_KEY}"})
+    assert r.status_code == 503
+
+
+@requires_fastapi
+def test_stream_done_contains_ttft(client, mock_engine, mock_key_manager):
+    """event:done SSE contient ttft_ms et tokens quand streaming actif."""
+    from eva.api.metrics import MetricsCollector
+    api_module._state.engine = mock_engine
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.metrics_collector = MetricsCollector()
+
+    r = client.get(
+        "/chat/stream",
+        params={"message": "test", "api_key": TEST_API_KEY},
+    )
+    assert r.status_code == 200
+    assert "event: done" in r.text
+
+    # Extraire le payload de event:done
+    import json as _json
+    done_payload = None
+    for line in r.text.splitlines():
+        if line.startswith("data:") and "ok" in line:
+            try:
+                payload = _json.loads(line[5:].strip())
+                if payload.get("ok") is True:
+                    done_payload = payload
+            except Exception:
+                pass
+
+    assert done_payload is not None
+    assert "latency_ms" in done_payload
+    assert "ok" in done_payload
+    # ttft_ms et tokens sont presents si des tokens ont ete emis
+    assert "ttft_ms" in done_payload
+    assert "tokens" in done_payload
+    assert done_payload["tokens"] > 0

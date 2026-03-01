@@ -1,12 +1,13 @@
 """
-EVA API Bench — R-044
+EVA API Bench -- R-044 + Phase 5(C) TTFT
 
 Benchmark black-box de l'API EVA.
 Mesure les latences p50/p95/max pour /health, /status, /chat, /chat/stream.
+Depuis Phase 5(C) : parse event:done SSE pour TTFT serveur + debit token.
 
-Prérequis :
+Prerequis :
     eva --api          (terminal 1)
-    Ollama running     (nécessaire pour /chat)
+    Ollama running     (necessaire pour /chat)
 
 Usage :
     KEY=$(eva --print-api-key)
@@ -22,16 +23,19 @@ Sortie :
     GET /health           p50=   4.2ms  p95=   7.1ms  max=  11.3ms  (n=30)
     GET /status           p50=   5.8ms  p95=   8.4ms  max=  12.1ms  (n=30)
     POST /chat            p50=1842.3ms  p95=3210.5ms  max=4821.0ms  (n=20)
-    GET /chat/stream TTFT p50=1856.1ms  p95=3218.0ms  max=4830.0ms  (n=20)
+    GET /chat/stream TTFT p50=1856.1ms  p95=3218.0ms  max=4830.0ms  (n=10)
+    TTFT serveur (event:done)  p50=  180ms  p95=  420ms
+    Debit moyen : 12.3 t/s
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import statistics
 import sys
 import time
-from typing import List
+from typing import List, Optional
 
 
 def _percentile(data: List[float], pct: float) -> float:
@@ -123,9 +127,11 @@ def run_bench(
         if chat_ms:
             _print_stats("POST /chat", chat_ms)
 
-    # --- GET /chat/stream (TTFT) ---
+    # --- GET /chat/stream (TTFT client + server-side depuis event:done) ---
     if not skip_stream:
-        ttft_ms: List[float] = []
+        ttft_ms: List[float] = []          # TTFT mesure cote client
+        srv_ttft_ms: List[int] = []        # TTFT rapporte par le serveur (event:done)
+        srv_tps: List[float] = []          # Debit tokens/s rapporte par le serveur
         for i in range(n_stream):
             params = {"message": message, "api_key": api_key}
             t0 = time.perf_counter()
@@ -140,18 +146,41 @@ def run_bench(
                         print(f"WARN /chat/stream [{i+1}] : HTTP {resp.status_code}")
                         break
                     first_token = False
+                    current_event: Optional[str] = None
                     for line in resp.iter_lines():
-                        if line and line.startswith(b"event: token"):
-                            if not first_token:
+                        if not line:
+                            current_event = None
+                            continue
+                        decoded = line.decode("utf-8") if isinstance(line, bytes) else line
+                        if decoded.startswith("event:"):
+                            current_event = decoded[len("event:"):].strip()
+                            if current_event == "token" and not first_token:
                                 ttft_ms.append((time.perf_counter() - t0) * 1000)
                                 first_token = True
-                        if line and line.startswith(b"event: done"):
+                        elif decoded.startswith("data:") and current_event == "done":
+                            # Extraire ttft_ms et tokens_per_sec depuis event:done
+                            try:
+                                payload = json.loads(decoded[len("data:"):].strip())
+                                if payload.get("ok") is True:
+                                    if "ttft_ms" in payload:
+                                        srv_ttft_ms.append(int(payload["ttft_ms"]))
+                                    if "tokens_per_sec" in payload:
+                                        srv_tps.append(float(payload["tokens_per_sec"]))
+                            except Exception:
+                                pass
                             break
             except Exception as e:
                 print(f"WARN /chat/stream [{i+1}] : {e}")
                 break
         if ttft_ms:
             _print_stats("GET /chat/stream TTFT", ttft_ms)
+        if srv_ttft_ms:
+            p50_srv = _percentile(srv_ttft_ms, 50)
+            p95_srv = _percentile(srv_ttft_ms, 95)
+            print(f"{'TTFT serveur (event:done)':<30s}  p50={p50_srv:8.0f}ms  p95={p95_srv:8.0f}ms  (n={len(srv_ttft_ms)})")
+        if srv_tps:
+            avg_tps = sum(srv_tps) / len(srv_tps)
+            print(f"{'Debit moyen':<30s}  {avg_tps:.1f} t/s  (n={len(srv_tps)})")
 
     session.close()
     print()

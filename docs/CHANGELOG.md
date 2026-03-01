@@ -8,6 +8,14 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 5(C) — Observabilite (R-052)** :
+  - `eva/api/metrics.py` (nouveau) : `MetricsCollector` — ring buffer `deque(maxlen=100)`, `RequestRecord` dataclass, `record_chat()`, `record_stream()`, `get_summary()` (p50/p95 par endpoint), zero dependance externe
+  - `eva/api/app.py` : `EvaState.metrics_collector` ajout ; `_init_eva()` initialise le collecteur ; POST /chat enregistre latence (succes et erreur) ; `_event_generator()` track TTFT (`first_token_time`) + `token_count` ; `event:done` enrichi avec `ttft_ms`, `tokens`, `tokens_per_sec` (additif, R-031 LOCKED) ; nouvel endpoint `GET /metrics` (auth requise, 200/401/503)
+  - `tests/unit/test_metrics.py` (nouveau) : 13 tests unitaires `MetricsCollector` — init, record_chat, record_stream, percentiles p50/p95, ring buffer maxlen, TTFT percentiles, tokens_per_sec
+  - `tests/unit/test_api.py` : 4 nouveaux tests — `test_metrics_requires_auth_401`, `test_metrics_valid_auth_200`, `test_metrics_503_when_not_initialized`, `test_stream_done_contains_ttft`
+  - `tools/bench_api.py` : parsing `event:done` SSE — extraction `ttft_ms` et `tokens_per_sec` serveur, affichage p50/p95 TTFT serveur + debit moyen
+  - **558 tests passent** (+17 vs 541), 0 regression — R-031 LOCKED inchange
+
 - **Phase 5(B) — Memoire Enrichie (R-051)** :
   - `eva/config.yaml` : ajout `memory.summary_threshold: 40` et `memory.summary_keep_recent: 10`
   - `eva/memory/memory_manager.py` : ajout `maybe_summarize(llm_fn)` — resume automatique via LLM injecte, echec silencieux, ecriture atomique preservee ; ajout propriete `summary_threshold`

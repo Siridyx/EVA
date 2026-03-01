@@ -1,7 +1,7 @@
 # EVA API — Guide développeur
 
 **Version** : 0.3.0
-**Phase** : 4(F) — R-042
+**Phase** : 5(C) — R-052
 **Base URL** : `http://127.0.0.1:8000`
 **Docs interactives** : `http://127.0.0.1:8000/docs` (Swagger UI)
 
@@ -19,6 +19,7 @@
    - [GET /status](#get-status)
    - [POST /chat](#post-chat)
    - [GET /chat/stream](#get-chatstream)
+   - [GET /metrics](#get-metrics)
 4. [Rate Limiting](#4-rate-limiting)
 5. [Codes d'erreur](#5-codes-derreur)
 6. [Exemples complets](#6-exemples-complets)
@@ -259,9 +260,9 @@ curl -s -X POST http://127.0.0.1:8000/chat \
 Streaming SSE (Server-Sent Events) — retourne la réponse token par token.
 Idéal pour une UX avec affichage progressif (web UI, terminal).
 
-> **NOTE Phase 4(C)** : FAKE STREAM — `engine.process()` est bloquant.
-> La réponse est découpée mot par mot avec un délai simulé de ~40 ms/mot.
-> Phase 5 branchera le streaming natif Ollama.
+> **Phase 5(A)** : streaming natif Ollama via `process_stream()` —
+> bridge `asyncio.Queue` + `asyncio.to_thread` (NDJSON Ollama → SSE).
+> Le FAKE STREAM Phase 4 est remplacé.
 
 #### Protocole SSE
 
@@ -283,8 +284,11 @@ data: {"text": " Je"}
 ... (N événements token)
 
 event: done
-data: {"latency_ms": 420, "ok": true}
+data: {"latency_ms": 420, "ok": true, "ttft_ms": 180, "tokens": 47, "tokens_per_sec": 12.3}
 ```
+
+Le payload `event:done` contient toujours `latency_ms` et `ok`.
+Les champs `ttft_ms`, `tokens` et `tokens_per_sec` sont présents si des tokens ont été émis.
 
 En cas d'erreur moteur :
 
@@ -330,8 +334,10 @@ es.addEventListener("token", (e) => {
 });
 
 es.addEventListener("done", (e) => {
-  const { latency_ms } = JSON.parse(e.data);
+  const { latency_ms, ttft_ms, tokens, tokens_per_sec } = JSON.parse(e.data);
   console.log(`\nLatence : ${latency_ms} ms`);
+  if (ttft_ms !== undefined) console.log(`TTFT : ${ttft_ms} ms`);
+  if (tokens_per_sec !== undefined) console.log(`Debit : ${tokens_per_sec} t/s`);
   es.close(); // IMPORTANT : fermer le stream
 });
 
@@ -389,6 +395,70 @@ X-Accel-Buffering: no
 
 ---
 
+### GET /metrics
+
+**Auth requise — Phase 5(C).**
+
+Retourne les métriques de performance de l'API en mémoire : p50/p95 par endpoint,
+TTFT (time-to-first-token) et débit token pour `/chat/stream`.
+Ring buffer des 100 dernières requêtes. Aucune persistance disque.
+
+#### Requête
+
+```bash
+KEY=$(eva --print-api-key)
+curl -H "Authorization: Bearer $KEY" http://127.0.0.1:8000/metrics
+```
+
+#### Réponse 200
+
+```json
+{
+  "uptime_s": 3600,
+  "endpoints": {
+    "chat": {
+      "requests": 42,
+      "errors": 1,
+      "p50_ms": 1240,
+      "p95_ms": 3810,
+      "last_latency_ms": 1180
+    },
+    "chat_stream": {
+      "requests": 18,
+      "errors": 0,
+      "p50_ms": 1320,
+      "p95_ms": 3920,
+      "p50_ttft_ms": 180,
+      "p95_ttft_ms": 420,
+      "last_latency_ms": 1300,
+      "last_ttft_ms": 175,
+      "last_token_count": 47,
+      "last_tokens_per_sec": 12.3
+    }
+  }
+}
+```
+
+| Champ | Type | Description |
+|---|---|---|
+| `uptime_s` | `int` | Secondes depuis le démarrage du collecteur |
+| `endpoints.chat.requests` | `int` | Nombre total de requêtes POST /chat (ring buf 100) |
+| `endpoints.chat.errors` | `int` | Nombre d'erreurs (ok=False) |
+| `endpoints.chat.p50_ms` | `int` | Percentile 50 des latences en ms |
+| `endpoints.chat.p95_ms` | `int` | Percentile 95 des latences en ms |
+| `endpoints.chat_stream.p50_ttft_ms` | `int` | Percentile 50 du TTFT en ms |
+| `endpoints.chat_stream.last_tokens_per_sec` | `float\|null` | Débit du dernier stream (tokens/s) |
+
+#### Codes de réponse
+
+| Code | Description |
+|---|---|
+| 200 | Métriques disponibles |
+| 401 | Clé API manquante ou invalide |
+| 503 | Collecteur non initialisé (moteur EVA non démarré) |
+
+---
+
 ## 4. Rate Limiting
 
 - **Algorithme** : fenêtre glissante de 60 secondes par IP
@@ -421,11 +491,11 @@ Retry-After: 60
 | Code | Signification | Endpoints concernés |
 |---|---|---|
 | 200 | Succès (ou état dégradé pour `/status`) | Tous |
-| 401 | Clé API manquante ou invalide | `/status`, `/chat`, `/chat/stream` |
+| 401 | Clé API manquante ou invalide | `/status`, `/chat`, `/chat/stream`, `/metrics` |
 | 422 | Corps de requête invalide (Pydantic) | `/chat` |
 | 429 | Rate limit dépassé | `/chat`, `/chat/stream` |
 | 500 | Erreur interne du moteur EVA | `/chat` |
-| 503 | Moteur non démarré / sécurité non initialisée | `/chat`, `/chat/stream` |
+| 503 | Moteur non démarré / collecteur non initialisé | `/chat`, `/chat/stream`, `/metrics` |
 
 ### Format des erreurs
 
@@ -570,5 +640,5 @@ Ces fonctionnalités sont hors scope Phase 4 et prévues pour Phase 5+ :
 
 ---
 
-*Documentation générée pour EVA Phase 4(F) — R-042*
-*Dernière mise à jour : 2026-02-28*
+*Documentation générée pour EVA Phase 5(C) — R-052*
+*Dernière mise à jour : 2026-03-01*

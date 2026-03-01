@@ -52,6 +52,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
 from eva import __version__
+from eva.api.metrics import MetricsCollector
 from eva.api.security import ApiKeyManager, RateLimiter
 from eva.core.config_manager import ConfigManager
 from eva.core.event_bus import EventBus
@@ -136,6 +137,7 @@ class EvaState:
     init_error: Optional[str] = None   # Erreur d'init partielle
     key_manager: Optional[ApiKeyManager] = None   # Phase 4(B) — auth
     rate_limiter: Optional[RateLimiter] = None    # Phase 4(B) — rate limit
+    metrics_collector: Optional[MetricsCollector] = None  # Phase 5(C) — observabilite
 
 
 _state = EvaState()
@@ -201,6 +203,9 @@ def _init_eva() -> None:
             event_bus=_state.event_bus,
             registry=_state.registry,
         )
+
+    # --- Metriques (Phase 5(C)) — ring buffer in-memory ---
+    _state.metrics_collector = MetricsCollector()
 
     # --- Sécurité API (Phase 4(B)) — initialisation non bloquante ---
     # Séparée du bloc principal : une erreur ici ne doit pas empêcher
@@ -572,12 +577,15 @@ async def chat(request: ChatRequest) -> ChatResponse:
     # Générer un conversation_id si non fourni par le client
     conv_id = request.conversation_id or str(uuid.uuid4())
 
+    t0 = time.monotonic()
     try:
-        t0 = time.monotonic()
         response_text = await asyncio.to_thread(
             _state.engine.process, request.message
         )
         latency_ms = int((time.monotonic() - t0) * 1000)
+
+        if _state.metrics_collector:
+            _state.metrics_collector.record_chat(latency_ms, ok=True)
 
         return ChatResponse(
             response=response_text,
@@ -585,6 +593,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
             metadata=ChatMetadata(provider="ollama", latency_ms=latency_ms),
         )
     except Exception:
+        if _state.metrics_collector:
+            _state.metrics_collector.record_chat(
+                int((time.monotonic() - t0) * 1000), ok=False
+            )
         # F-04 audit sécurité R-043 : pas de detail=str(exc) — évite le leak
         # d'informations internes (chemin fichier, nom modèle, message réseau)
         # dans la réponse HTTP. L'exception est journalisée en interne.
@@ -727,30 +739,121 @@ async def chat_stream(
 
         stream_task = asyncio.create_task(asyncio.to_thread(_run_stream))
 
+        # Phase 5(C) — TTFT tracking
+        first_token_time: Optional[float] = None
+        token_count: int = 0
+
         try:
             while True:
                 token = await queue.get()
                 if token is None:
                     break
+                if first_token_time is None:
+                    first_token_time = time.monotonic()
+                token_count += 1
                 yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
         except Exception:
+            if _state.metrics_collector:
+                _state.metrics_collector.record_stream(
+                    int((time.monotonic() - t0) * 1000), None, token_count, ok=False
+                )
             yield f"event: error\ndata: {json.dumps({'message': 'Erreur lors du traitement.'})}\n\n"
             return
         finally:
             await stream_task
 
         if error_list:
+            if _state.metrics_collector:
+                _state.metrics_collector.record_stream(
+                    int((time.monotonic() - t0) * 1000), None, token_count, ok=False
+                )
             yield f"event: error\ndata: {json.dumps({'message': 'Erreur lors du traitement.'})}\n\n"
             return
 
+        # Calculs finaux — Phase 5(C)
         latency_ms = int((time.monotonic() - t0) * 1000)
-        yield f"event: done\ndata: {json.dumps({'latency_ms': latency_ms, 'ok': True})}\n\n"
+        ttft_ms = int((first_token_time - t0) * 1000) if first_token_time else None
+        stream_s = (latency_ms - ttft_ms) / 1000 if ttft_ms else 0
+        tps = round(token_count / stream_s, 1) if stream_s > 0 else None
+
+        if _state.metrics_collector:
+            _state.metrics_collector.record_stream(latency_ms, ttft_ms, token_count, ok=True)
+
+        # event:done enrichi (additif — non breaking)
+        done_data: dict = {"latency_ms": latency_ms, "ok": True}
+        if ttft_ms is not None:
+            done_data["ttft_ms"] = ttft_ms
+        if token_count > 0:
+            done_data["tokens"] = token_count
+        if tps is not None:
+            done_data["tokens_per_sec"] = tps
+        yield f"event: done\ndata: {json.dumps(done_data)}\n\n"
 
     return StreamingResponse(
         _event_generator(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /metrics — Phase 5(C)
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/metrics",
+    tags=["System"],
+    summary="Metriques de performance API (p50/p95, TTFT SSE)",
+    dependencies=[Depends(require_api_key)],
+    responses={
+        200: {
+            "description": "Metriques p50/p95 par endpoint (ring buffer 100 dernieres requetes).",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "uptime_s": 42,
+                        "endpoints": {
+                            "chat": {
+                                "requests": 10, "errors": 0,
+                                "p50_ms": 215, "p95_ms": 890,
+                                "last_latency_ms": 201
+                            },
+                            "chat_stream": {
+                                "requests": 4, "errors": 0,
+                                "p50_ms": 1240, "p95_ms": 3200,
+                                "p50_ttft_ms": 180, "p95_ttft_ms": 420,
+                                "last_latency_ms": 1100,
+                                "last_ttft_ms": 175,
+                                "last_token_count": 47,
+                                "last_tokens_per_sec": 12.3
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        401: {"description": "Cle API manquante ou invalide."},
+        503: {"description": "Metriques non disponibles."},
+    },
+)
+async def get_metrics():
+    """
+    Expose les metriques de performance API (ring buffer, 100 dernieres requetes).
+
+    - `p50_ms` / `p95_ms` : latence totale par endpoint
+    - `p50_ttft_ms` / `p95_ttft_ms` : time-to-first-token SSE
+    - `last_*` : chiffres de la derniere requete
+
+    **Auth requise** (meme cle que /status et /chat).
+    """
+    if _state.metrics_collector is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Metrics collector not initialized.",
+        )
+    from fastapi.responses import JSONResponse as _JSONResponse
+    return _JSONResponse(_state.metrics_collector.get_summary())
 
 
 # ---------------------------------------------------------------------------
