@@ -238,6 +238,23 @@ def _build_html() -> str:
       color: var(--grey);
       flex-shrink: 0;
     }}
+
+    /* ── Perf badge (header) -- Phase 5(D) ── */
+    .perf-badge {{
+      border-left: 1px solid var(--border);
+      padding-left: 10px;
+      margin-left: 4px;
+      font-size: 11px;
+      color: var(--grey);
+    }}
+
+    /* ── Metadonnees message (event:done) -- Phase 5(D) ── */
+    .msg-meta {{
+      font-size: 11px;
+      color: var(--grey);
+      padding: 2px 12px 0;
+      font-style: italic;
+    }}
   </style>
 </head>
 <body>
@@ -247,6 +264,7 @@ def _build_html() -> str:
     <div class="status-badge">
       <div class="status-dot" id="status-dot"></div>
       <span id="status-text">Connexion…</span>
+      <div class="perf-badge" id="perf-badge" style="display:none"><span id="perf-text"></span></div>
     </div>
   </header>
 
@@ -277,6 +295,8 @@ def _build_html() -> str:
     const sendBtn  = document.getElementById("send-btn");
     const statusDot  = document.getElementById("status-dot");
     const statusText = document.getElementById("status-text");
+    const perfBadge  = document.getElementById("perf-badge");
+    const perfText   = document.getElementById("perf-text");
 
     // ── État ─────────────────────────────────────────────────────────────────
     let conversationId  = null;   // maintenu côté client
@@ -362,9 +382,31 @@ def _build_html() -> str:
       }}
     }}
 
-    // Démarrer le polling : immédiat + toutes les 5s
+    // Polling metriques (/metrics) -- Phase 5(D)
+    async function pollMetrics() {{
+      if (!API_KEY) return;
+      try {{
+        const res = await fetch("/metrics", {{
+          headers: {{ "Authorization": "Bearer " + API_KEY }},
+        }});
+        if (!res.ok) return;  // 503 (pas init) ou 401 : silent
+        const data = await res.json();
+        const stream = data.endpoints && data.endpoints.chat_stream;
+        if (stream && stream.p50_ttft_ms > 0) {{
+          const parts = ["TTFT p50 " + stream.p50_ttft_ms + "ms"];
+          const chat = data.endpoints.chat;
+          if (chat && chat.p50_ms > 0) parts.push("chat p50 " + chat.p50_ms + "ms");
+          perfText.textContent = parts.join(" \u00b7 ");
+          perfBadge.style.display = "";
+        }}
+      }} catch (_) {{}}
+    }}
+
+    // Demarrer le polling : immediat + toutes les 5s
     pollStatus();
     setInterval(pollStatus, 5000);
+    // Metriques : appel initial a t+2s puis toutes les 30s
+    setTimeout(function() {{ pollMetrics(); setInterval(pollMetrics, 30000); }}, 2000);
 
     // ── Envoi message (SSE / EventSource) ────────────────────────────────────
     // Phase 4(C) : remplace fetch POST /chat par EventSource GET /chat/stream
@@ -404,11 +446,28 @@ def _build_html() -> str:
       }});
 
       // event: done — fin normale du stream
-      es.addEventListener("done", () => {{
+      es.addEventListener("done", (e) => {{
         es.close();
         if (!_evaStreamAccum && thinkingEl) {{
-          thinkingEl.textContent = "…";  // fallback si aucun token reçu
+          thinkingEl.textContent = "…";  // fallback si aucun token recu
         }}
+        // Metadonnees TTFT/tokens depuis event:done -- Phase 5(D)
+        try {{
+          const d = JSON.parse(e.data);
+          const parentMsg = thinkingEl && thinkingEl.closest(".msg");
+          if (parentMsg && (d.ttft_ms !== undefined || d.tokens_per_sec !== undefined)) {{
+            const parts = [];
+            if (d.ttft_ms !== undefined) parts.push("TTFT " + d.ttft_ms + "ms");
+            if (d.tokens !== undefined) parts.push(d.tokens + " tok");
+            if (d.tokens_per_sec !== undefined) parts.push(d.tokens_per_sec + " t/s");
+            if (parts.length > 0) {{
+              const metaEl = document.createElement("div");
+              metaEl.className = "msg-meta";
+              metaEl.textContent = parts.join(" \u00b7 ");
+              parentMsg.appendChild(metaEl);
+            }}
+          }}
+        }} catch (_) {{}}
         thinkingEl = null;
         if (engineRunning) {{ input.disabled = false; sendBtn.disabled = false; }}
         input.focus();

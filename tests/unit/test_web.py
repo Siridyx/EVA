@@ -82,3 +82,17 @@ def test_web_references_chat_api(client):
     """La page HTML référence l'endpoint /chat (appels fetch)."""
     response = client.get("/")
     assert "/chat" in response.text
+
+
+@requires_fastapi
+def test_web_references_metrics(client):
+    """La page HTML reference /metrics (polling perf Phase 5(D))."""
+    response = client.get("/")
+    assert "/metrics" in response.text
+
+
+@requires_fastapi
+def test_web_has_perf_badge(client):
+    """La page HTML contient le badge perf (header Phase 5(D))."""
+    response = client.get("/")
+    assert "perf-badge" in response.text

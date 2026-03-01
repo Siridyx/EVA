@@ -8,6 +8,12 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 5(D) — UX / Clients** :
+  - `eva/web/app.py` : perf badge dans le header — `pollMetrics()` appelle `GET /metrics` (t+2s puis 30s), affiche TTFT p50 et chat p50 quand disponibles, echec silencieux si 503
+  - `eva/web/app.py` : handler `event:done` enrichi — parse `ttft_ms`, `tokens`, `tokens_per_sec` et ajoute `.msg-meta` (gris italique) sous chaque reponse EVA streamee
+  - `tests/unit/test_web.py` : 2 nouveaux tests — `test_web_references_metrics`, `test_web_has_perf_badge`
+  - **560 tests passent** (+2 vs 558), 0 regression — R-031 LOCKED inchange
+
 - **Phase 5(C) — Observabilite (R-052)** :
   - `eva/api/metrics.py` (nouveau) : `MetricsCollector` — ring buffer `deque(maxlen=100)`, `RequestRecord` dataclass, `record_chat()`, `record_stream()`, `get_summary()` (p50/p95 par endpoint), zero dependance externe
   - `eva/api/app.py` : `EvaState.metrics_collector` ajout ; `_init_eva()` initialise le collecteur ; POST /chat enregistre latence (succes et erreur) ; `_event_generator()` track TTFT (`first_token_time`) + `token_count` ; `event:done` enrichi avec `ttft_ms`, `tokens`, `tokens_per_sec` (additif, R-031 LOCKED) ; nouvel endpoint `GET /metrics` (auth requise, 200/401/503)

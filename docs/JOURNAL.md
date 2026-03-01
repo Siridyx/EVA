@@ -1128,4 +1128,27 @@ Le resume utilise `profile="dev"` (modele leger) pour economiser les tokens.
 
 ---
 
-OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5(A) VALIDEE -- Phase 5(B) VALIDEE -- Phase 5(C) VALIDEE)
+---
+
+## Phase 5(D) -- UX / Clients
+
+**Date** : 2026-03-01
+**Objectif** : Exploiter les donnees Phase 5(C) cote UX web -- afficher TTFT, tokens/s et latences globales sans modifier le backend.
+
+### Decisions techniques
+
+- **pollMetrics() separe de pollStatus()** : interval 30s (vs 5s pour status) car les metriques changent lentement. Appel initial a t+2s pour laisser le temps au moteur de s'initialiser.
+- **Echec silencieux obligatoire** : si /metrics → 503 (collecteur non init) ou erreur reseau, le badge reste cache. Aucun message d'erreur UI.
+- **msg-meta sous chaque reponse** : div `.msg-meta` appende dans le meme `.msg` que la reponse EVA, AVANT `thinkingEl = null`. Utilise `thinkingEl.closest(".msg")`.
+- **f-string Python** : toutes les accolades JS doublees `{{` `}}`. Separateur middle-dot via `\u00b7`.
+
+### Livraisons
+
+- Fichier modifie : `eva/web/app.py` (CSS + HTML + JS -- 5 zones d'edit)
+- Fichier modifie : `tests/unit/test_web.py` (+2 tests)
+- Tests : 560 passent (+2 vs 558), 0 regression
+- Nouvelles dependances : aucune
+
+---
+
+OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5(A) VALIDEE -- Phase 5(B) VALIDEE -- Phase 5(C) VALIDEE -- Phase 5(D) VALIDEE)
