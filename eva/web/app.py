@@ -29,8 +29,7 @@ Standards :
 from __future__ import annotations
 
 from eva import __version__
-from eva.api.app import _state  # noqa: F401  — accès au key_manager pour injection clé
-from eva.api.app import app  # réutilise l'app FastAPI R-031 (+ lifespan + _state)
+from eva.api.app import app  # reutilise l'app FastAPI R-031 (+ lifespan)
 from fastapi.responses import HTMLResponse
 
 
@@ -40,10 +39,10 @@ from fastapi.responses import HTMLResponse
 
 
 def _build_html() -> str:
-    """Construit la page HTML complète avec CSS et JS embarqués.
+    """Construit la page HTML complete avec CSS et JS embarques.
 
-    La clé API (__API_KEY__) est injectée dynamiquement à chaque requête GET /
-    via _HTML.replace("__API_KEY__", key, 1) dans web_index().
+    HTML/CSS/JS statiques. Authentification via session cookie eva_session
+    (Phase 6(A)) — la cle API n'est jamais injectee dans la page.
     """
     return f"""<!DOCTYPE html>
 <html lang="fr">
@@ -259,6 +258,20 @@ def _build_html() -> str:
 </head>
 <body>
 
+  <!-- Login overlay (Phase 6(A)) — cache le chat jusqu'a authentification -->
+  <div id="login-overlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:32px;min-width:280px;display:flex;flex-direction:column;gap:12px">
+      <div class="logo" style="text-align:center">EVA <span>v{__version__}</span></div>
+      <p style="color:var(--grey);font-size:12px;text-align:center">Entrez votre cle API pour continuer</p>
+      <form id="login-form" style="display:flex;flex-direction:column;gap:8px">
+        <input id="login-key" type="password" placeholder="Cle API" autocomplete="current-password"
+               style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--white);font-family:inherit;font-size:14px;padding:8px 12px;outline:none">
+        <button type="submit" style="background:var(--cyan);color:var(--bg);border:none;border-radius:var(--radius);font-family:inherit;font-size:13px;font-weight:bold;padding:8px 16px;cursor:pointer">Connexion</button>
+      </form>
+      <div id="login-error" style="color:var(--red);font-size:12px;text-align:center;min-height:16px"></div>
+    </div>
+  </div>
+
   <header>
     <div class="logo">EVA <span>v{__version__}</span></div>
     <div class="status-badge">
@@ -299,12 +312,9 @@ def _build_html() -> str:
     const perfText   = document.getElementById("perf-text");
 
     // ── État ─────────────────────────────────────────────────────────────────
-    let conversationId  = null;   // maintenu côté client
+    let conversationId  = null;   // maintenu cote client
     let engineRunning   = false;
     let _evaStreamAccum = "";     // accumule les tokens SSE en cours
-
-    // Clé API injectée par le serveur à la génération de la page
-    const API_KEY = "__API_KEY__";
 
     // ── Utilitaires ──────────────────────────────────────────────────────────
     function addMessage(sender, text, cls) {{
@@ -357,10 +367,12 @@ def _build_html() -> str:
     // ── Polling statut ───────────────────────────────────────────────────────
     async function pollStatus() {{
       try {{
-        // /status requiert auth depuis Phase 4(B)
-        const headers = API_KEY ? {{ "Authorization": "Bearer " + API_KEY }} : {{}};
-        const res = await fetch("/status", {{ headers }});
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        // Cookie de session envoye automatiquement par le navigateur
+        const res = await fetch("/status");
+        if (!res.ok) {{
+          if (res.status === 401) {{ showLogin("Session expiree."); return; }}
+          throw new Error("HTTP " + res.status);
+        }}
         const data = await res.json();
         engineRunning = data.engine === "RUNNING";
 
@@ -384,11 +396,9 @@ def _build_html() -> str:
 
     // Polling metriques (/metrics) -- Phase 5(D)
     async function pollMetrics() {{
-      if (!API_KEY) return;
       try {{
-        const res = await fetch("/metrics", {{
-          headers: {{ "Authorization": "Bearer " + API_KEY }},
-        }});
+        // Cookie de session envoye automatiquement — echec silencieux
+        const res = await fetch("/metrics");
         if (!res.ok) return;  // 503 (pas init) ou 401 : silent
         const data = await res.json();
         const stream = data.endpoints && data.endpoints.chat_stream;
@@ -402,15 +412,54 @@ def _build_html() -> str:
       }} catch (_) {{}}
     }}
 
-    // Demarrer le polling : immediat + toutes les 5s
-    pollStatus();
-    setInterval(pollStatus, 5000);
-    // Metriques : appel initial a t+2s puis toutes les 30s
-    setTimeout(function() {{ pollMetrics(); setInterval(pollMetrics, 30000); }}, 2000);
+    // ── Login / session (Phase 6(A)) ─────────────────────────────────────────
+    const loginOverlay = document.getElementById("login-overlay");
+    const loginForm    = document.getElementById("login-form");
+    const loginKey     = document.getElementById("login-key");
+    const loginErr     = document.getElementById("login-error");
+
+    function showLogin(msg) {{
+      loginErr.textContent = msg || "";
+      loginOverlay.style.display = "";
+      loginKey.focus();
+    }}
+
+    function startApp() {{
+      loginOverlay.style.display = "none";
+      pollStatus();
+      setInterval(pollStatus, 5000);
+      setTimeout(function() {{ pollMetrics(); setInterval(pollMetrics, 30000); }}, 2000);
+    }}
+
+    loginForm.addEventListener("submit", async (e) => {{
+      e.preventDefault();
+      const key = loginKey.value.trim();
+      if (!key) return;
+      loginErr.textContent = "";
+      try {{
+        const res = await fetch("/auth/login", {{
+          method: "POST",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify({{ api_key: key }}),
+        }});
+        if (res.ok) {{ loginKey.value = ""; startApp(); }}
+        else if (res.status === 401) {{ showLogin("Cle invalide."); }}
+        else {{ showLogin("Erreur serveur (" + res.status + ")."); }}
+      }} catch (_) {{ showLogin("Erreur connexion."); }}
+    }});
+
+    // Auto-login si cookie session deja present (/status 200 = session ok)
+    (async function tryAutoLogin() {{
+      try {{
+        const r = await fetch("/status");
+        if (r.ok) {{ startApp(); return; }}
+      }} catch (_) {{}}
+      showLogin();
+    }})();
 
     // ── Envoi message (SSE / EventSource) ────────────────────────────────────
     // Phase 4(C) : remplace fetch POST /chat par EventSource GET /chat/stream
-    // EventSource ne supporte pas les headers customs → clé passée en query param.
+    // Phase 6(A) : cookie de session envoye automatiquement — plus de ?api_key=
     function sendMessage(text) {{
       if (!text.trim()) return;
 
@@ -420,10 +469,10 @@ def _build_html() -> str:
       sendBtn.disabled = true;
       showThinking();  // affiche "Réfléchit…" — thinkingEl = .msg-text
 
-      // Construire l'URL SSE avec les paramètres
+      // Construire l'URL SSE avec les parametres
+      // Phase 6(A) : cookie session envoye automatiquement par EventSource
       const params = new URLSearchParams({{ message: text }});
       if (conversationId) params.set("conversation_id", conversationId);
-      if (API_KEY) params.set("api_key", API_KEY);
 
       _evaStreamAccum = "";
       const es = new EventSource("/chat/stream?" + params.toString());
@@ -486,7 +535,8 @@ def _build_html() -> str:
             addError("Erreur serveur");
           }}
         }} else {{
-          addError("Connexion perdue ou erreur serveur (vérifiez la clé API)");
+          addError("Connexion perdue ou session expiree");
+          showLogin("Session expiree.");
         }}
         if (engineRunning) {{ input.disabled = false; sendBtn.disabled = false; }}
         input.focus();
@@ -507,9 +557,16 @@ def _build_html() -> str:
 </html>"""
 
 
-# Construire le HTML une seule fois au chargement du module
-# La clé API (__API_KEY__) sera remplacée dynamiquement dans web_index()
+# Construire le HTML une seule fois au chargement du module (statique — Phase 6(A))
 _HTML: str = _build_html()
+
+# Headers de securite sur GET / (Phase 6(A))
+_SECURITY_HEADERS: dict[str, str] = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "same-origin",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -522,15 +579,13 @@ async def web_index() -> HTMLResponse:
     """
     Interface browser EVA.
 
-    Consomme GET /chat/stream (SSE, Phase 4(C)) et GET /status (R-031).
-    HTML/CSS/JS entièrement embarqués.
+    Consomme GET /chat/stream (SSE) et GET /status (R-031).
+    HTML/CSS/JS entierement embarques.
 
-    Injection de la clé API dans la page à chaque requête (Phase 4(C)) :
-    le placeholder __API_KEY__ est remplacé par la vraie clé pour que
-    le JS puisse appeler /chat/stream?api_key=<key> via EventSource.
+    Phase 6(A) : authentification via session cookie eva_session (HttpOnly).
+    La cle API n'est jamais injectee dans la page HTML.
     """
-    api_key = _state.key_manager.key if _state.key_manager else ""
-    return HTMLResponse(content=_HTML.replace("__API_KEY__", api_key, 1))
+    return HTMLResponse(content=_HTML, headers=_SECURITY_HEADERS)
 
 
 # ---------------------------------------------------------------------------

@@ -80,6 +80,7 @@ def reset_state():
         api_module._state.key_manager = None
         api_module._state.rate_limiter = None
         api_module._state.metrics_collector = None
+        api_module._state.session_manager = None
 
 
 @pytest.fixture
@@ -481,3 +482,73 @@ def test_stream_done_contains_ttft(client, mock_engine, mock_key_manager):
     assert "ttft_ms" in done_payload
     assert "tokens" in done_payload
     assert done_payload["tokens"] > 0
+
+
+# --- Tests Phase 6(A) — Session cookie auth ---
+
+
+@requires_fastapi
+def test_auth_login_valid_key(client, mock_key_manager):
+    """POST /auth/login cle valide → 200, cookie eva_session present."""
+    from eva.api.security import SessionManager
+
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.session_manager = SessionManager()
+
+    r = client.post("/auth/login", json={"api_key": TEST_API_KEY})
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+    assert "eva_session" in r.cookies
+
+
+@requires_fastapi
+def test_auth_login_invalid_key(client, mock_key_manager):
+    """POST /auth/login cle invalide → 401."""
+    from eva.api.security import SessionManager
+
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.session_manager = SessionManager()
+
+    r = client.post("/auth/login", json={"api_key": "mauvaise_cle"})
+    assert r.status_code == 401
+
+
+@requires_fastapi
+def test_auth_login_no_init(client):
+    """POST /auth/login key_manager non initialise → 503."""
+    # _state.key_manager reste None (reset_state)
+    r = client.post("/auth/login", json={"api_key": TEST_API_KEY})
+    assert r.status_code == 503
+
+
+@requires_fastapi
+def test_auth_session_cookie_accepted(client, mock_key_manager):
+    """GET /status avec cookie eva_session valide → 200 (pas de Bearer)."""
+    from eva.api.security import SessionManager
+
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.session_manager = SessionManager()
+    session_id = api_module._state.session_manager.create()
+
+    r = client.get("/status", cookies={"eva_session": session_id})
+    assert r.status_code == 200
+
+
+@requires_fastapi
+def test_auth_logout(client, mock_key_manager):
+    """POST /auth/logout → 200, session revoquee en memoire."""
+    from eva.api.security import SessionManager
+
+    api_module._state.key_manager = mock_key_manager
+    api_module._state.session_manager = SessionManager()
+    session_id = api_module._state.session_manager.create()
+
+    # Verifier que la session est valide avant logout
+    assert api_module._state.session_manager.verify(session_id)
+
+    r = client.post("/auth/logout", cookies={"eva_session": session_id})
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+    # La session doit etre revoquee apres logout
+    assert not api_module._state.session_manager.verify(session_id)

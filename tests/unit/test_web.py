@@ -96,3 +96,17 @@ def test_web_has_perf_badge(client):
     """La page HTML contient le badge perf (header Phase 5(D))."""
     response = client.get("/")
     assert "perf-badge" in response.text
+
+
+@requires_fastapi
+def test_web_has_login_overlay(client):
+    """La page HTML contient le login overlay (Phase 6(A))."""
+    response = client.get("/")
+    assert "login-overlay" in response.text
+
+
+@requires_fastapi
+def test_web_no_api_key_injected(client):
+    """La page HTML ne contient pas le placeholder __API_KEY__ (Phase 6(A))."""
+    response = client.get("/")
+    assert "__API_KEY__" not in response.text

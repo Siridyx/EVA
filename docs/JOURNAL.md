@@ -2,8 +2,8 @@
 
 Projet : EVA — Assistant IA Personnel
 Auteur : Sébastien
-Phase actuelle : Phase 5 — Observabilite & Intelligence (en cours)
-Statut global : Phase 3 ✅ — Phase 4 ✅ — Phase 5(A) ✅ — Phase 5(B) ✅ — Phase 5(C) ✅
+Phase actuelle : Phase 6 — Securite & Distribution (en cours)
+Statut global : Phase 3 ✅ — Phase 4 ✅ — Phase 5 ✅ — Phase 6(A) ✅
 Dernière mise à jour : 2026-03-01
 
 ### 🎯 Objectif du Journal
@@ -1151,4 +1151,32 @@ Le resume utilise `profile="dev"` (modele leger) pour economiser les tokens.
 
 ---
 
-OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5(A) VALIDEE -- Phase 5(B) VALIDEE -- Phase 5(C) VALIDEE -- Phase 5(D) VALIDEE)
+## Phase 6(A) -- Session HttpOnly Cookie Auth
+
+**Date** : 2026-03-01
+**Objectif** : Supprimer l'exposition de la cle API dans le HTML (`__API_KEY__` injecte, `?api_key=` en URL) et la remplacer par un flux login → session cookie HttpOnly/SameSite=Strict.
+
+### Decisions techniques
+
+- **SessionManager en memoire** : sessions perdues au redemarrage — acceptable pour usage local. Dict `{session_id: expires_at (monotonic)}`, cleanup paresseux avant `create()`, TTL 24h.
+- **Cookie `Secure=False`** : localhost HTTP uniquement. Production HTTPS → passer a `True`.
+- **Backward compat preservee** : `Authorization: Bearer`, `X-EVA-Key`, `?api_key=` continuent de fonctionner pour les clients API tiers (curl, SDK). Priorite : cookie > Bearer > X-EVA-Key > ?api_key.
+- **EventSource + cookies** : le navigateur envoie automatiquement les cookies same-origin dans les requetes EventSource → plus besoin de `?api_key=` depuis le web UI.
+- **Login overlay UX** : `tryAutoLogin()` sonde `/status` au chargement — si 200, session deja valide → `startApp()` direct. Si 401, overlay visible.
+- **Session expiree** : `pollStatus()` detecte 401 → `showLogin("Session expiree.")`. Handler error EventSource → idem.
+- **Security headers** : `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`, `Referrer-Policy: same-origin` sur GET /.
+- **f-string Python** : accolades JS doublees `{{` `}}` dans `_build_html()` — invariant maintenu.
+
+### Livraisons
+
+- Fichier modifie : `eva/api/security.py` (+ `SessionManager`)
+- Fichier modifie : `eva/api/app.py` (EvaState, require_api_key, chat_stream, /auth/login, /auth/logout, import Response)
+- Fichier modifie : `eva/web/app.py` (suppression injection cle + login overlay + headers securite)
+- Fichier modifie : `tests/unit/test_api.py` (+5 tests session, reset_state mis a jour)
+- Fichier modifie : `tests/unit/test_web.py` (+2 tests)
+- Tests : 567 passent (+7 vs 560), 0 regression -- R-031 LOCKED inchange
+- Nouvelles dependances : aucune
+
+---
+
+OK Fin JOURNAL (Phase 3 COMPLETE -- Phase 4 COMPLETE -- Phase 5 COMPLETE -- Phase 6(A) VALIDEE)

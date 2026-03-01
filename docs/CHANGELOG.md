@@ -8,6 +8,14 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 
 ## [Unreleased]
 
+- **Phase 6(A) — Session HttpOnly Cookie Auth** :
+  - `eva/api/security.py` : ajout `SessionManager` — sessions HttpOnly TTL 24h, `secrets.token_urlsafe(32)`, cleanup paresseux, `create()` / `verify()` / `revoke()`
+  - `eva/api/app.py` : `EvaState.session_manager` ; `_init_eva()` initialise `SessionManager` avec `key_manager` ; `require_api_key` : check cookie `eva_session` en priorite (puis Bearer/X-EVA-Key) ; `chat_stream` inline auth : idem ; nouveaux endpoints `POST /auth/login` (valide cle → cookie HttpOnly/SameSite=Strict) et `POST /auth/logout` (revoke + delete cookie) ; tag OpenAPI `Auth` ; import `Response` ajout
+  - `eva/web/app.py` : suppression `from eva.api.app import _state` et injection `__API_KEY__` ; login overlay HTML (plein ecran, form password, message erreur) ; JS — suppression `const API_KEY`, `pollStatus()` et `pollMetrics()` utilisent le cookie auto, `sendMessage()` sans `?api_key=`, bloc `showLogin()` / `startApp()` / `tryAutoLogin()`, handler `event:done error` → `showLogin("Session expiree.")` ; `_SECURITY_HEADERS` (`X-Content-Type-Options`, `X-Frame-Options`, `Cache-Control: no-store`, `Referrer-Policy`) ; backward compat Bearer/X-EVA-Key/`?api_key=` preservee pour clients API tiers
+  - `tests/unit/test_api.py` : 5 nouveaux tests — `test_auth_login_valid_key`, `test_auth_login_invalid_key`, `test_auth_login_no_init`, `test_auth_session_cookie_accepted`, `test_auth_logout` ; `reset_state` fixture : reset `session_manager`
+  - `tests/unit/test_web.py` : 2 nouveaux tests — `test_web_has_login_overlay`, `test_web_no_api_key_injected`
+  - **567 tests passent** (+7 vs 560), 0 regression — R-031 LOCKED inchange
+
 - **Phase 5(D) — UX / Clients** :
   - `eva/web/app.py` : perf badge dans le header — `pollMetrics()` appelle `GET /metrics` (t+2s puis 30s), affiche TTFT p50 et chat p50 quand disponibles, echec silencieux si 503
   - `eva/web/app.py` : handler `event:done` enrichi — parse `ttft_ms`, `tokens`, `tokens_per_sec` et ajoute `.msg-meta` (gris italique) sous chaque reponse EVA streamee

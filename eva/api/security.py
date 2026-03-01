@@ -1,14 +1,15 @@
 """
-EVA API Security — Auth + Rate Limiting (Phase 4(B)).
+EVA API Security — Auth + Rate Limiting + Sessions (Phase 4(B) / Phase 6(A)).
 
 Modules :
-    ApiKeyManager : génère/charge la clé API depuis eva/data/secrets/api_key.txt
-    RateLimiter   : 60 req/min par IP, in-memory, fenêtre glissante 60s
+    ApiKeyManager  : genere/charge la cle API depuis eva/data/secrets/api_key.txt
+    RateLimiter    : 60 req/min par IP, in-memory, fenetre glissante 60s
+    SessionManager : sessions HTTP via cookie HttpOnly, TTL 24h (Phase 6(A))
 
-Principes de sécurité :
-    - secrets.token_hex(32) : clé 64 hex, entropie 256 bits
+Principes de securite :
+    - secrets.token_hex(32) : cle 64 hex, entropie 256 bits
     - secrets.compare_digest : comparaison constant-time (protection timing attacks)
-    - chmod 600 sur le fichier clé (Unix — ignoré silencieusement sous Windows)
+    - chmod 600 sur le fichier cle (Unix — ignore silencieusement sous Windows)
     - Dossier eva/data/secrets/ couvert par .gitignore (eva/data/**)
 """
 
@@ -178,3 +179,51 @@ class RateLimiter:
 
         bucket.append(now)
         return True
+
+
+# ---------------------------------------------------------------------------
+# Session Manager (Phase 6(A))
+# ---------------------------------------------------------------------------
+
+
+class SessionManager:
+    """Sessions HTTP via cookie HttpOnly. TTL 24h.
+
+    Cree des sessions identifiees par un token opaque (secrets.token_urlsafe).
+    Les sessions expirees sont supprimees paresseusement lors de create().
+    Aucune persistance : les sessions sont perdues au redemarrage (acceptable
+    pour une interface locale).
+    """
+
+    TTL: int = 86_400  # 24h en secondes
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, float] = {}  # session_id -> expires_at (monotonic)
+
+    def create(self) -> str:
+        """Cree une nouvelle session et retourne le session_id."""
+        self._cleanup()
+        session_id = secrets.token_urlsafe(32)
+        self._sessions[session_id] = time.monotonic() + self.TTL
+        return session_id
+
+    def verify(self, session_id: str) -> bool:
+        """Verifie qu'une session est valide et non expiree."""
+        exp = self._sessions.get(session_id)
+        if exp is None:
+            return False
+        if time.monotonic() > exp:
+            del self._sessions[session_id]
+            return False
+        return True
+
+    def revoke(self, session_id: str) -> None:
+        """Revoque une session (logout)."""
+        self._sessions.pop(session_id, None)
+
+    def _cleanup(self) -> None:
+        """Supprime les sessions expirees (appele avant create pour eviter la fuite memoire)."""
+        now = time.monotonic()
+        expired = [sid for sid, exp in self._sessions.items() if now > exp]
+        for sid in expired:
+            del self._sessions[sid]

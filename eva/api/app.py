@@ -48,12 +48,12 @@ from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, field_validator
 
 from eva import __version__
 from eva.api.metrics import MetricsCollector
-from eva.api.security import ApiKeyManager, RateLimiter
+from eva.api.security import ApiKeyManager, RateLimiter, SessionManager
 from eva.core.config_manager import ConfigManager
 from eva.core.event_bus import EventBus
 from eva.core.eva_engine import EVAEngine
@@ -138,6 +138,7 @@ class EvaState:
     key_manager: Optional[ApiKeyManager] = None   # Phase 4(B) — auth
     rate_limiter: Optional[RateLimiter] = None    # Phase 4(B) — rate limit
     metrics_collector: Optional[MetricsCollector] = None  # Phase 5(C) — observabilite
+    session_manager: Optional[SessionManager] = None  # Phase 6(A) — session cookie auth
 
 
 _state = EvaState()
@@ -217,6 +218,7 @@ def _init_eva() -> None:
             _state.key_manager.load_or_generate()
             rate_limit = int(_state.config.get("api.rate_limit_per_min", 60))
             _state.rate_limiter = RateLimiter(max_per_min=rate_limit)
+            _state.session_manager = SessionManager()
     except Exception as sec_exc:
         # Non bloquant : l'API démarre sans auth plutôt que de crash
         _state.init_error = (
@@ -293,6 +295,14 @@ app = FastAPI(
             "description": "Healthcheck et statut du moteur EVA.",
         },
         {
+            "name": "Auth",
+            "description": (
+                "Authentification par session cookie (Phase 6(A)).\n\n"
+                "- `POST /auth/login` : valide la cle API, cree une session HttpOnly\n"
+                "- `POST /auth/logout` : revoque la session"
+            ),
+        },
+        {
             "name": "Chat",
             "description": (
                 "Conversation avec EVA.\n\n"
@@ -310,28 +320,35 @@ app = FastAPI(
 
 
 async def require_api_key(
+    request: Request,
     authorization: Optional[str] = Header(None),
     x_eva_key: Optional[str] = Header(None, alias="X-EVA-Key"),
 ) -> None:
     """
-    Dépendance FastAPI : vérifie la clé API.
+    Dependance FastAPI : verifie l'authentification.
 
-    Accepte :
-        Authorization: Bearer <key>   (standard)
-        X-EVA-Key: <key>              (fallback pratique)
+    Ordre de priorite :
+        1. Cookie de session `eva_session` (web UI — Phase 6(A))
+        2. Authorization: Bearer <key>  (header standard)
+        3. X-EVA-Key: <key>             (header alternatif)
 
     Raises:
-        HTTPException 503 : si key_manager non initialisé
-        HTTPException 401 : si clé absente ou invalide
+        HTTPException 503 : si key_manager non initialise
+        HTTPException 401 : si aucune auth valide
     """
     if _state.key_manager is None:
-        # Sécurité non initialisée (erreur startup) — service indisponible
+        # Securite non initialisee (erreur startup) — service indisponible
         raise HTTPException(
             status_code=503,
-            detail="Sécurité non initialisée. Relancez l'API.",
+            detail="Securite non initialisee. Relancez l'API.",
         )
 
-    # Extraire la clé depuis le header prioritaire ou le fallback
+    # 1. Cookie de session HttpOnly (web UI — Phase 6(A))
+    session_id = request.cookies.get("eva_session", "")
+    if session_id and _state.session_manager and _state.session_manager.verify(session_id):
+        return
+
+    # 2. Bearer / X-EVA-Key (backward compat clients API)
     api_key: Optional[str] = None
     if authorization and authorization.startswith("Bearer "):
         api_key = authorization[7:]
@@ -341,7 +358,7 @@ async def require_api_key(
     if api_key is None:
         raise HTTPException(
             status_code=401,
-            detail="Clé API requise. Header : Authorization: Bearer <key>",
+            detail="Cle API requise. Header : Authorization: Bearer <key>",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -349,7 +366,7 @@ async def require_api_key(
     if not _state.key_manager.verify(api_key):
         raise HTTPException(
             status_code=401,
-            detail="Clé API invalide.",
+            detail="Cle API invalide.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -670,23 +687,32 @@ async def chat_stream(
 
     Streaming natif OllamaProvider (Phase 5A) — tokens Ollama NDJSON en temps reel.
     """
-    # --- Auth inline (supporte query param pour EventSource navigateur) ---
+    # --- Auth inline (supporte cookie session + query param pour EventSource) ---
     if _state.key_manager is None:
         raise HTTPException(
             status_code=503,
-            detail="Sécurité non initialisée. Relancez l'API.",
+            detail="Securite non initialisee. Relancez l'API.",
         )
-    provided: Optional[str] = None
-    if authorization and authorization.startswith("Bearer "):
-        provided = authorization[7:]
-    elif x_eva_key:
-        provided = x_eva_key
-    elif api_key:
-        provided = api_key
-    if provided is None or not _state.key_manager.verify(provided):
+    authed = False
+    # 1. Cookie de session (EventSource navigateur envoie les cookies auto)
+    session_id = request.cookies.get("eva_session", "")
+    if session_id and _state.session_manager and _state.session_manager.verify(session_id):
+        authed = True
+    # 2. Bearer / X-EVA-Key / ?api_key= (backward compat API clients)
+    if not authed:
+        provided: Optional[str] = None
+        if authorization and authorization.startswith("Bearer "):
+            provided = authorization[7:]
+        elif x_eva_key:
+            provided = x_eva_key
+        elif api_key:
+            provided = api_key
+        if provided is not None and _state.key_manager.verify(provided):
+            authed = True
+    if not authed:
         raise HTTPException(
             status_code=401,
-            detail="Clé API requise ou invalide.",
+            detail="Cle API requise ou invalide.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -854,6 +880,70 @@ async def get_metrics():
         )
     from fastapi.responses import JSONResponse as _JSONResponse
     return _JSONResponse(_state.metrics_collector.get_summary())
+
+
+# ---------------------------------------------------------------------------
+# Auth — Session cookie (Phase 6(A))
+# ---------------------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    """Corps de la requete POST /auth/login."""
+
+    api_key: str
+
+
+@app.post(
+    "/auth/login",
+    tags=["Auth"],
+    summary="Demarrer une session (cookie HttpOnly)",
+    responses={
+        200: {"description": "Session creee. Cookie eva_session set."},
+        401: {"description": "Cle API invalide."},
+        503: {"description": "Service non initialise."},
+    },
+)
+async def auth_login(body: LoginRequest, response: Response) -> dict:
+    """
+    Valide la cle API et cree une session via cookie HttpOnly/SameSite=Strict.
+
+    La cle API n'est jamais renvoyee au client ni exposee dans l'HTML.
+    Le cookie eva_session (TTL 24h) est utilise pour toutes les requetes suivantes.
+    """
+    if _state.key_manager is None:
+        raise HTTPException(status_code=503, detail="Service non initialise.")
+    if not _state.key_manager.verify(body.api_key):
+        raise HTTPException(status_code=401, detail="Cle API invalide.")
+    session_id = _state.session_manager.create()  # type: ignore[union-attr]
+    response.set_cookie(
+        key="eva_session",
+        value=session_id,
+        httponly=True,
+        samesite="strict",
+        path="/",
+        max_age=SessionManager.TTL,
+        secure=False,  # localhost HTTP -- mettre True en production HTTPS
+    )
+    return {"status": "ok"}
+
+
+@app.post(
+    "/auth/logout",
+    tags=["Auth"],
+    summary="Terminer la session (supprime le cookie)",
+    responses={200: {"description": "Session revoquee."}},
+)
+async def auth_logout(request: Request, response: Response) -> dict:
+    """
+    Revoque la session courante et supprime le cookie eva_session.
+
+    Idempotent : sans effet si aucune session active.
+    """
+    session_id = request.cookies.get("eva_session", "")
+    if session_id and _state.session_manager:
+        _state.session_manager.revoke(session_id)
+    response.delete_cookie(key="eva_session", path="/")
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
