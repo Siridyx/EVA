@@ -1231,7 +1231,7 @@ def main(host: str = "127.0.0.1", port: int = 8000, tls: bool = False) -> int:
             print("  TLS     : certificat auto-signe (eva/data/certs/)")
             print("  Note    : acceptez l'avertissement navigateur (cert non-CA)")
         if _api_key:
-            print(f"  API Key : {_api_key}")
+            print("  API key : (set) -- run 'eva --print-api-key' to display")
         print(f"  API     : {scheme}://{host}:{port}")
         print(f"  OpenAPI : {scheme}://{host}:{port}/openapi.json")
         print("  Note    : Docs UI (/docs) is for development only."
