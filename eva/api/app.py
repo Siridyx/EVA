@@ -1226,14 +1226,16 @@ def main(host: str = "127.0.0.1", port: int = 8000, tls: bool = False) -> int:
     try:
         import uvicorn
 
-        print(f"EVA API v{__version__} — {scheme}://{host}:{port}")
+        print(f"EVA API v{__version__} -- {scheme}://{host}:{port}")
         if tls:
-            print("  TLS   : certificat auto-signé (eva/data/certs/)")
-            print("  Note  : acceptez l'avertissement navigateur (cert non-CA)")
+            print("  TLS     : certificat auto-signe (eva/data/certs/)")
+            print("  Note    : acceptez l'avertissement navigateur (cert non-CA)")
         if _api_key:
             print(f"  API Key : {_api_key}")
-        print(f"  Docs  : {scheme}://{host}:{port}/docs")
-        print(f"  Redoc : {scheme}://{host}:{port}/redoc")
+        print(f"  API     : {scheme}://{host}:{port}")
+        print(f"  OpenAPI : {scheme}://{host}:{port}/openapi.json")
+        print("  Note    : Docs UI (/docs) is for development only."
+              " Production hardening planned in Phase 6(C).")
 
         uvicorn_kwargs: dict = {"host": host, "port": port}
         if ssl_certfile and ssl_keyfile:

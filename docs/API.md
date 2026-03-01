@@ -1,12 +1,19 @@
 # EVA API — Guide développeur
 
 **Version** : 0.3.0
-**Phase** : 5(C) — R-052
+**Phase** : 6(D) — multi-utilisateurs
 **Base URL** : `http://127.0.0.1:8000`
-**Docs interactives** : `http://127.0.0.1:8000/docs` (Swagger UI)
+**OpenAPI JSON** : `http://127.0.0.1:8000/openapi.json`
 
 > **Usage local uniquement.** L'API écoute sur `127.0.0.1` — non exposée réseau.
-> Exposition réseau (`0.0.0.0`) prévue en Phase 5 après validation du modèle auth.
+
+> **Docs UI (`/docs`, `/redoc`) — développement uniquement.**
+> Ces endpoints ne sont pas protégés par authentification.
+> Ne pas exposer en production. La désactivation conditionnelle (mode `prod`)
+> est planifiée en **Phase 6(C)**. Pour afficher les URLs dev localement :
+> ```bash
+> eva --print-api-urls
+> ```
 
 ---
 
@@ -79,11 +86,11 @@ Tous les endpoints sauf `/health` exigent une clé API.
 
 ### Méthodes acceptées (par ordre de priorité)
 
-| Méthode | Exemple | Usage |
-|---|---|---|
-| Header `Authorization` | `Authorization: Bearer <key>` | Standard — curl, SDK, client HTTP |
-| Header `X-EVA-Key` | `X-EVA-Key: <key>` | Fallback pratique |
-| Query param `?api_key=` | `?api_key=<key>` | EventSource navigateur (headers non supportés) |
+| Méthode                 | Exemple                       | Usage                                          |
+| ----------------------- | ----------------------------- | ---------------------------------------------- |
+| Header `Authorization`  | `Authorization: Bearer <key>` | Standard — curl, SDK, client HTTP              |
+| Header `X-EVA-Key`      | `X-EVA-Key: <key>`            | Fallback pratique                              |
+| Query param `?api_key=` | `?api_key=<key>`              | EventSource navigateur (headers non supportés) |
 
 ### Exemples curl
 
@@ -180,10 +187,10 @@ curl -H "Authorization: Bearer $KEY" http://127.0.0.1:8000/status
 
 #### Codes de réponse
 
-| Code | Description |
-|---|---|
-| 200 | Toujours — état inclus dans le corps |
-| 401 | Clé API manquante ou invalide |
+| Code | Description                          |
+| ---- | ------------------------------------ |
+| 200  | Toujours — état inclus dans le corps |
+| 401  | Clé API manquante ou invalide        |
 
 ---
 
@@ -215,10 +222,10 @@ curl -s -X POST http://127.0.0.1:8000/chat \
 }
 ```
 
-| Champ | Type | Requis | Description |
-|---|---|---|---|
-| `message` | `string` | Oui | Message envoyé à EVA (non vide) |
-| `conversation_id` | `string` | Non | UUID de conversation — généré si absent |
+| Champ             | Type     | Requis | Description                             |
+| ----------------- | -------- | ------ | --------------------------------------- |
+| `message`         | `string` | Oui    | Message envoyé à EVA (non vide)         |
+| `conversation_id` | `string` | Non    | UUID de conversation — généré si absent |
 
 #### Réponse 200
 
@@ -233,23 +240,23 @@ curl -s -X POST http://127.0.0.1:8000/chat \
 }
 ```
 
-| Champ | Type | Description |
-|---|---|---|
-| `response` | `string` | Réponse textuelle d'EVA |
-| `conversation_id` | `string` | UUID à réutiliser pour la suite de la conversation |
-| `metadata.provider` | `string` | Fournisseur LLM (`"ollama"`) |
-| `metadata.latency_ms` | `int` | Latence de l'appel LLM en millisecondes |
+| Champ                 | Type     | Description                                        |
+| --------------------- | -------- | -------------------------------------------------- |
+| `response`            | `string` | Réponse textuelle d'EVA                            |
+| `conversation_id`     | `string` | UUID à réutiliser pour la suite de la conversation |
+| `metadata.provider`   | `string` | Fournisseur LLM (`"ollama"`)                       |
+| `metadata.latency_ms` | `int`    | Latence de l'appel LLM en millisecondes            |
 
 #### Codes de réponse
 
-| Code | Description |
-|---|---|
-| 200 | Réponse reçue |
-| 401 | Clé API manquante ou invalide |
-| 422 | Corps invalide (message vide, JSON malformé) |
-| 429 | Rate limit dépassé — `Retry-After: 60` |
-| 500 | Erreur interne du moteur EVA |
-| 503 | Moteur EVA non démarré |
+| Code | Description                                  |
+| ---- | -------------------------------------------- |
+| 200  | Réponse reçue                                |
+| 401  | Clé API manquante ou invalide                |
+| 422  | Corps invalide (message vide, JSON malformé) |
+| 429  | Rate limit dépassé — `Retry-After: 60`       |
+| 500  | Erreur interne du moteur EVA                 |
+| 503  | Moteur EVA non démarré                       |
 
 ---
 
@@ -302,11 +309,11 @@ data: {"message": "Erreur lors du traitement."}
 
 #### Paramètres query
 
-| Paramètre | Type | Requis | Description |
-|---|---|---|---|
-| `message` | `string` | Oui | Message envoyé à EVA (1–2000 caractères) |
-| `conversation_id` | `string` | Non | UUID de conversation — généré si absent |
-| `api_key` | `string` | Non* | Clé API — alternative aux headers (EventSource) |
+| Paramètre         | Type     | Requis | Description                                     |
+| ----------------- | -------- | ------ | ----------------------------------------------- |
+| `message`         | `string` | Oui    | Message envoyé à EVA (1–2000 caractères)        |
+| `conversation_id` | `string` | Non    | UUID de conversation — généré si absent         |
+| `api_key`         | `string` | Non\*  | Clé API — alternative aux headers (EventSource) |
 
 \* La clé doit être fournie via `?api_key=`, header `Authorization`, ou `X-EVA-Key`.
 
@@ -337,7 +344,8 @@ es.addEventListener("done", (e) => {
   const { latency_ms, ttft_ms, tokens, tokens_per_sec } = JSON.parse(e.data);
   console.log(`\nLatence : ${latency_ms} ms`);
   if (ttft_ms !== undefined) console.log(`TTFT : ${ttft_ms} ms`);
-  if (tokens_per_sec !== undefined) console.log(`Debit : ${tokens_per_sec} t/s`);
+  if (tokens_per_sec !== undefined)
+    console.log(`Debit : ${tokens_per_sec} t/s`);
   es.close(); // IMPORTANT : fermer le stream
 });
 
@@ -386,12 +394,12 @@ X-Accel-Buffering: no
 
 #### Codes de réponse
 
-| Code | Description |
-|---|---|
-| 200 | Stream SSE ouvert (cf. `event: error` pour erreur moteur dans le stream) |
-| 401 | Clé API manquante ou invalide |
-| 429 | Rate limit dépassé — `Retry-After: 60` |
-| 503 | Moteur EVA non démarré ou sécurité non initialisée |
+| Code | Description                                                              |
+| ---- | ------------------------------------------------------------------------ |
+| 200  | Stream SSE ouvert (cf. `event: error` pour erreur moteur dans le stream) |
+| 401  | Clé API manquante ou invalide                                            |
+| 429  | Rate limit dépassé — `Retry-After: 60`                                   |
+| 503  | Moteur EVA non démarré ou sécurité non initialisée                       |
 
 ---
 
@@ -439,23 +447,23 @@ curl -H "Authorization: Bearer $KEY" http://127.0.0.1:8000/metrics
 }
 ```
 
-| Champ | Type | Description |
-|---|---|---|
-| `uptime_s` | `int` | Secondes depuis le démarrage du collecteur |
-| `endpoints.chat.requests` | `int` | Nombre total de requêtes POST /chat (ring buf 100) |
-| `endpoints.chat.errors` | `int` | Nombre d'erreurs (ok=False) |
-| `endpoints.chat.p50_ms` | `int` | Percentile 50 des latences en ms |
-| `endpoints.chat.p95_ms` | `int` | Percentile 95 des latences en ms |
-| `endpoints.chat_stream.p50_ttft_ms` | `int` | Percentile 50 du TTFT en ms |
-| `endpoints.chat_stream.last_tokens_per_sec` | `float\|null` | Débit du dernier stream (tokens/s) |
+| Champ                                       | Type          | Description                                        |
+| ------------------------------------------- | ------------- | -------------------------------------------------- |
+| `uptime_s`                                  | `int`         | Secondes depuis le démarrage du collecteur         |
+| `endpoints.chat.requests`                   | `int`         | Nombre total de requêtes POST /chat (ring buf 100) |
+| `endpoints.chat.errors`                     | `int`         | Nombre d'erreurs (ok=False)                        |
+| `endpoints.chat.p50_ms`                     | `int`         | Percentile 50 des latences en ms                   |
+| `endpoints.chat.p95_ms`                     | `int`         | Percentile 95 des latences en ms                   |
+| `endpoints.chat_stream.p50_ttft_ms`         | `int`         | Percentile 50 du TTFT en ms                        |
+| `endpoints.chat_stream.last_tokens_per_sec` | `float\|null` | Débit du dernier stream (tokens/s)                 |
 
 #### Codes de réponse
 
-| Code | Description |
-|---|---|
-| 200 | Métriques disponibles |
-| 401 | Clé API manquante ou invalide |
-| 503 | Collecteur non initialisé (moteur EVA non démarré) |
+| Code | Description                                        |
+| ---- | -------------------------------------------------- |
+| 200  | Métriques disponibles                              |
+| 401  | Clé API manquante ou invalide                      |
+| 503  | Collecteur non initialisé (moteur EVA non démarré) |
 
 ---
 
@@ -488,14 +496,14 @@ Retry-After: 60
 
 ## 5. Codes d'erreur
 
-| Code | Signification | Endpoints concernés |
-|---|---|---|
-| 200 | Succès (ou état dégradé pour `/status`) | Tous |
-| 401 | Clé API manquante ou invalide | `/status`, `/chat`, `/chat/stream`, `/metrics` |
-| 422 | Corps de requête invalide (Pydantic) | `/chat` |
-| 429 | Rate limit dépassé | `/chat`, `/chat/stream` |
-| 500 | Erreur interne du moteur EVA | `/chat` |
-| 503 | Moteur non démarré / collecteur non initialisé | `/chat`, `/chat/stream`, `/metrics` |
+| Code | Signification                                  | Endpoints concernés                            |
+| ---- | ---------------------------------------------- | ---------------------------------------------- |
+| 200  | Succès (ou état dégradé pour `/status`)        | Tous                                           |
+| 401  | Clé API manquante ou invalide                  | `/status`, `/chat`, `/chat/stream`, `/metrics` |
+| 422  | Corps de requête invalide (Pydantic)           | `/chat`                                        |
+| 429  | Rate limit dépassé                             | `/chat`, `/chat/stream`                        |
+| 500  | Erreur interne du moteur EVA                   | `/chat`                                        |
+| 503  | Moteur non démarré / collecteur non initialisé | `/chat`, `/chat/stream`, `/metrics`            |
 
 ### Format des erreurs
 
@@ -628,17 +636,17 @@ for event in client.events():
 
 Ces fonctionnalités sont hors scope Phase 4 et prévues pour Phase 5+ :
 
-| Feature | Raison du report |
-|---|---|
-| HTTPS / TLS | Localhost-only — TLS sans CA = overhead sans gain |
-| Exposition `0.0.0.0` | Après validation complète du modèle auth (Phase 5) |
-| Session / cookie httpOnly | Pas d'authentification multi-utilisateur Phase 4 |
-| X-Forwarded-For (proxy trust) | Pas d'exposition réseau Phase 4 |
-| Rate limit Redis / persistant | In-memory suffisant pour local-only |
-| WebSocket | SSE couvre les besoins Phase 4 |
-| Streaming natif Ollama | Phase 5 — remplacera le FAKE STREAM actuel |
+| Feature                       | Raison du report                                   |
+| ----------------------------- | -------------------------------------------------- |
+| HTTPS / TLS                   | Localhost-only — TLS sans CA = overhead sans gain  |
+| Exposition `0.0.0.0`          | Après validation complète du modèle auth (Phase 5) |
+| Session / cookie httpOnly     | Pas d'authentification multi-utilisateur Phase 4   |
+| X-Forwarded-For (proxy trust) | Pas d'exposition réseau Phase 4                    |
+| Rate limit Redis / persistant | In-memory suffisant pour local-only                |
+| WebSocket                     | SSE couvre les besoins Phase 4                     |
+| Streaming natif Ollama        | Phase 5 — remplacera le FAKE STREAM actuel         |
 
 ---
 
-*Documentation générée pour EVA Phase 5(C) — R-052*
-*Dernière mise à jour : 2026-03-01*
+_Documentation générée pour EVA Phase 5(C) — R-052_
+_Dernière mise à jour : 2026-03-01_

@@ -4,11 +4,12 @@ CLI principal pour EVA
 Usage:
     eva                     # Lance REPL interactif
     eva --tui               # Lance le Terminal UI (Textual)
-    eva --api               # Lance l'API REST JSON (FastAPI — localhost:8000)
-    eva --api --tls         # Lance l'API REST en HTTPS (cert auto-signé)
-    eva --web               # Lance l'interface web (FastAPI + UI browser — localhost:8000)
+    eva --api               # Lance l'API REST JSON (FastAPI -- localhost:8000)
+    eva --api --tls         # Lance l'API REST en HTTPS (cert auto-signe)
+    eva --web               # Lance l'interface web (FastAPI + UI browser -- localhost:8000)
     eva --web --tls         # Lance l'interface web en HTTPS
-    eva --print-api-key     # Affiche (ou génère) la clé API EVA
+    eva --print-api-key     # Affiche (ou genere) la cle API EVA
+    eva --print-api-urls    # Affiche toutes les URLs dev (base, openapi, docs, redoc)
     eva --version           # Affiche version
     eva --help              # Aide
 """
@@ -74,7 +75,16 @@ def main():
     parser.add_argument(
         "--print-api-key",
         action="store_true",
-        help="Affiche (ou génère) la clé API EVA pour l'API REST"
+        help="Affiche (ou genere) la cle API EVA pour l'API REST"
+    )
+
+    parser.add_argument(
+        "--print-api-urls",
+        action="store_true",
+        help=(
+            "Affiche toutes les URLs de l'API (base, openapi.json, /docs, /redoc). "
+            "Dev only -- ne pas exposer en production."
+        )
     )
 
     args = parser.parse_args()
@@ -90,6 +100,9 @@ def main():
         print(_km.load_or_generate())
         return 0
 
+    if args.print_api_urls:
+        return _print_api_urls()
+
     if args.api:
         from eva.api.app import main as api_main
         return api_main(tls=args.tls)
@@ -103,6 +116,25 @@ def main():
     else:
         from eva.repl import main as repl_main
         return repl_main()
+
+
+def _print_api_urls(host: str = "127.0.0.1", port: int = 8000) -> int:
+    """
+    Affiche toutes les URLs de l'API EVA (dev only).
+
+    Le boot normal (eva --api) n'affiche plus /docs ni /redoc
+    pour eviter d'exposer des URLs sensibles par accident.
+    Cette commande les affiche explicitement pour le developpeur.
+    """
+    base = f"http://{host}:{port}"
+    print(f"EVA API URLs (dev) -- {base}")
+    print(f"  API     : {base}")
+    print(f"  OpenAPI : {base}/openapi.json")
+    print(f"  Docs    : {base}/docs")
+    print(f"  Redoc   : {base}/redoc")
+    print("  Warning : /docs and /redoc are for development only.")
+    print("            Do not expose in production (hardening in Phase 6(C)).")
+    return 0
 
 
 def _bootstrap_admin() -> int:
